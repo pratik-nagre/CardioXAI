@@ -55,40 +55,43 @@ class CounterfactualOptimizer:
         self.ae_to_cox_indices = [self.ae_feature_cols.index(c) for c in self.cox_feature_cols]
         
         # Categorize indices for penalties
-        self.imm_cols = ['SEX', 'PREVCHD', 'PREVAP', 'PREVMI', 'PREVSTRK', 'PREVHYP'] + self.cat_cols
+        self.imm_cols = ['SEX', 'PREVCHD', 'PREVAP', 'PREVMI', 'PREVSTRK', 'PREVHYP', 'DIABETES'] + self.cat_cols
         self.imm_idx = [self.ae_feature_cols.index(c) for c in self.imm_cols if c in self.ae_feature_cols]
         
-        self.age_idx = self.ae_feature_cols.index('AGE') if 'AGE' in self.ae_feature_cols else -1
+        self.decrease_only_cols = []
+        self.increase_only_cols = []
         
-        # Smoker paradox and frailty confounding features (can only decrease)
-        self.decrease_only_cols = ['CIGPDAY', 'CURSMOKE', 'TOTCHOL']
-        self.decrease_only_idx = [self.ae_feature_cols.index(c) for c in self.decrease_only_cols if c in self.ae_feature_cols]
+        for col in self.ae_feature_cols:
+            if col in self.imm_cols or col not in self.cox_feature_cols:
+                continue
+                
+            # Manual Overrides for Clinical/Biological Safety
+            if col == 'BPMEDS':
+                # Confounding by indication: never recommend stopping BP meds
+                self.increase_only_cols.append(col)
+                continue
+            elif col == 'HEARTRTE':
+                # Confounding by frailty: Cox coef is negative, but clinically shouldn't recommend raising HR
+                self.decrease_only_cols.append(col)
+                continue
+            elif col == 'AGE':
+                # Biological reality: cannot get younger. 
+                # For single-point counterfactual recommendations, we anchor it symmetrically to prevent upward manifold drift.
+                self.imm_cols.append(col)
+                self.imm_idx.append(self.ae_feature_cols.index(col))
+                continue
+                
+            # Programmatic rule: enforce movement only in the hazard-reducing direction
+            coef = self.cph_model.params_[col]
+            if coef > 0:
+                self.decrease_only_cols.append(col)
+            elif coef < 0:
+                self.increase_only_cols.append(col)
+                
+        self.decrease_only_idx = [self.ae_feature_cols.index(c) for c in self.decrease_only_cols]
+        self.increase_only_idx = [self.ae_feature_cols.index(c) for c in self.increase_only_cols]
         
-        # Medication confounding features (can only increase)
-        self.increase_only_cols = ['BPMEDS']
-        self.increase_only_idx = [self.ae_feature_cols.index(c) for c in self.increase_only_cols if c in self.ae_feature_cols]
         
-        # Define Actionable Hard Bounds (in scaled space)
-        # We must transform physiological limits to scaled space.
-        def scale_val(feat, val):
-            idx = self.cont_cols.index(feat)
-            return (val - self.scaler.mean_[idx]) / self.scaler.scale_[idx]
-            
-        self.sysbp_min_scaled = scale_val('SYSBP', 90.0)
-        self.diabp_min_scaled = scale_val('DIABP', 60.0)
-        self.totchol_min_scaled = scale_val('TOTCHOL', 120.0)
-        self.glucose_min_scaled = scale_val('GLUCOSE', 65.0)
-        self.hr_min_scaled = scale_val('HEARTRTE', 50.0)
-        self.bmi_abs_min_scaled = scale_val('BMI', 18.5)
-        self.cigpday_min_scaled = scale_val('CIGPDAY', 0.0)
-        
-        self.sysbp_idx = self.ae_feature_cols.index('SYSBP')
-        self.diabp_idx = self.ae_feature_cols.index('DIABP')
-        self.totchol_idx = self.ae_feature_cols.index('TOTCHOL')
-        self.glucose_idx = self.ae_feature_cols.index('GLUCOSE')
-        self.hr_idx = self.ae_feature_cols.index('HEARTRTE')
-        self.bmi_idx = self.ae_feature_cols.index('BMI')
-        self.bmi_scale_idx = self.cont_cols.index('BMI')
 
     def construct_decoded_vector(self, out_cont, out_bin, out_cat):
         """Reassembles the split heads into a single 21-dim feature vector matching ae_feature_cols order."""
@@ -119,10 +122,42 @@ class CounterfactualOptimizer:
         
         optimizer = torch.optim.Adam([z], lr=lr)
         
-        # Setup patient-specific relative bounds (e.g., BMI drop max 20%)
-        bmi_native_orig = (x_0[0, self.bmi_idx].item() * self.scaler.scale_[self.bmi_scale_idx]) + self.scaler.mean_[self.bmi_scale_idx]
-        bmi_native_min = max(18.5, bmi_native_orig * 0.80) # Max 20% drop, but never below 18.5
-        bmi_min_scaled = (bmi_native_min - self.scaler.mean_[self.bmi_scale_idx]) / self.scaler.scale_[self.bmi_scale_idx]
+        # Setup patient-specific relative bounds
+        rel_caps = {
+            'SYSBP': 0.20,
+            'DIABP': 0.20,
+            'TOTCHOL': 0.20,
+            'GLUCOSE': 0.20,
+            'BMI': 0.20,
+            'HEARTRTE': 0.15,
+            'CIGPDAY': 0.50
+        }
+        abs_floors = {
+            'SYSBP': 90.0,
+            'DIABP': 60.0,
+            'TOTCHOL': 120.0,
+            'GLUCOSE': 65.0,
+            'HEARTRTE': 50.0,
+            'BMI': 18.5,
+            'CIGPDAY': 0.0
+        }
+        
+        self.patient_mins = {}
+        for feat, cap in rel_caps.items():
+            if feat not in self.ae_feature_cols:
+                continue
+            f_idx = self.ae_feature_cols.index(feat)
+            c_idx = self.cont_cols.index(feat)
+            
+            orig_scaled = x_0[0, f_idx].item()
+            orig_native = (orig_scaled * self.scaler.scale_[c_idx]) + self.scaler.mean_[c_idx]
+            
+            # Compute minimum allowed value (relative cap vs absolute floor)
+            rel_min = orig_native * (1.0 - cap)
+            final_native_min = max(abs_floors.get(feat, 0.0), rel_min)
+            final_scaled_min = (final_native_min - self.scaler.mean_[c_idx]) / self.scaler.scale_[c_idx]
+            
+            self.patient_mins[f_idx] = final_scaled_min
         
         best_z = z_0.clone().detach()
         best_loss = float('inf')
@@ -161,13 +196,9 @@ class CounterfactualOptimizer:
             # 3. Immutable Penalty (Anchor exactly to x_0's immutable values)
             loss_imm = torch.sum((x_hat[0, self.imm_idx] - x_0[0, self.imm_idx])**2) * lambda_imm
             
-            # 4. Directional & Monotonic Penalties
+            # 4. Directional Constraints (Monotonicity)
             loss_dir = 0.0
-            if self.age_idx != -1:
-                # AGE cannot decrease -> penalize if x_hat < x_0
-                age_diff = x_0[0, self.age_idx] - x_hat[0, self.age_idx]
-                loss_dir += torch.relu(age_diff)**2 * lambda_dir
-                
+            
             for s_idx in self.decrease_only_idx:
                 # CIGPDAY/CURSMOKE/TOTCHOL cannot increase -> penalize if x_hat > x_0
                 diff = x_hat[0, s_idx] - x_0[0, s_idx]
@@ -180,16 +211,8 @@ class CounterfactualOptimizer:
                 
             # 5. Barrier Penalties (Squared Hinge)
             loss_bound = 0.0
-            loss_bound += torch.relu(self.sysbp_min_scaled - x_hat[0, self.sysbp_idx])**2 * lambda_bound
-            loss_bound += torch.relu(self.diabp_min_scaled - x_hat[0, self.diabp_idx])**2 * lambda_bound
-            loss_bound += torch.relu(self.totchol_min_scaled - x_hat[0, self.totchol_idx])**2 * lambda_bound
-            loss_bound += torch.relu(self.glucose_min_scaled - x_hat[0, self.glucose_idx])**2 * lambda_bound
-            loss_bound += torch.relu(self.hr_min_scaled - x_hat[0, self.hr_idx])**2 * lambda_bound
-            loss_bound += torch.relu(bmi_min_scaled - x_hat[0, self.bmi_idx])**2 * lambda_bound
-            
-            cigpday_idx = self.ae_feature_cols.index('CIGPDAY') if 'CIGPDAY' in self.ae_feature_cols else -1
-            if cigpday_idx != -1:
-                loss_bound += torch.relu(self.cigpday_min_scaled - x_hat[0, cigpday_idx])**2 * lambda_bound
+            for f_idx, min_scaled in self.patient_mins.items():
+                loss_bound += torch.relu(min_scaled - x_hat[0, f_idx])**2 * lambda_bound
             
             # Total Loss
             loss = loss_risk + loss_prox + loss_imm + loss_dir + loss_bound
@@ -220,19 +243,10 @@ class CounterfactualOptimizer:
             x_cf_final[0, self.imm_idx] = x_0[0, self.imm_idx]
             
             # 2. Apply Hard bounds first
-            x_cf_final[0, self.sysbp_idx] = torch.max(x_cf_final[0, self.sysbp_idx], torch.tensor(self.sysbp_min_scaled, device=self.device))
-            x_cf_final[0, self.diabp_idx] = torch.max(x_cf_final[0, self.diabp_idx], torch.tensor(self.diabp_min_scaled, device=self.device))
-            x_cf_final[0, self.totchol_idx] = torch.max(x_cf_final[0, self.totchol_idx], torch.tensor(self.totchol_min_scaled, device=self.device))
-            x_cf_final[0, self.glucose_idx] = torch.max(x_cf_final[0, self.glucose_idx], torch.tensor(self.glucose_min_scaled, device=self.device))
-            x_cf_final[0, self.hr_idx] = torch.max(x_cf_final[0, self.hr_idx], torch.tensor(self.hr_min_scaled, device=self.device))
-            x_cf_final[0, self.bmi_idx] = torch.max(x_cf_final[0, self.bmi_idx], torch.tensor(bmi_min_scaled, device=self.device))
-            
-            if cigpday_idx != -1:
-                x_cf_final[0, cigpday_idx] = torch.max(x_cf_final[0, cigpday_idx], torch.tensor(self.cigpday_min_scaled, device=self.device))
+            for f_idx, min_scaled in self.patient_mins.items():
+                x_cf_final[0, f_idx] = torch.max(x_cf_final[0, f_idx], torch.tensor(min_scaled, device=self.device))
             
             # 3. Force directional rules strictly (has final say over hard bounds)
-            if self.age_idx != -1:
-                x_cf_final[0, self.age_idx] = torch.max(x_cf_final[0, self.age_idx], x_0[0, self.age_idx])
             for s_idx in self.decrease_only_idx:
                 x_cf_final[0, s_idx] = torch.min(x_cf_final[0, s_idx], x_0[0, s_idx])
             for i_idx in self.increase_only_idx:
@@ -241,6 +255,10 @@ class CounterfactualOptimizer:
             # Final hazard check
             cox_x_cf = x_cf_final[0, self.ae_to_cox_indices]
             final_hazard = torch.dot(cox_x_cf, self.cox_betas).item()
+            
+            if final_hazard >= baseline_hazard:
+                x_cf_final = x_0.clone()
+                final_hazard = baseline_hazard
             
         success = (baseline_hazard - final_hazard) > min_risk_drop
         

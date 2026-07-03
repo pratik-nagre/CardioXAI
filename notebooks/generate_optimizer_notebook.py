@@ -60,8 +60,8 @@ We identify a subset of high-risk patients from the test cohort (e.g., those who
 # Filter to those who had an event in the test set
 test_events = test_df[test_df['ANYCHD'] == 1].copy()
 
-# Pick 3 original patients as case studies
-sample_patients = test_events.head(3)
+# Pick 10 original patients as case studies (plus the 2 edge cases below makes 12)
+sample_patients = test_events.head(10)
 
 # Find a patient with very low SYSBP to test the hard bound
 sysbp_scale_idx = cont_cols.index('SYSBP')
