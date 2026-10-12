@@ -172,7 +172,16 @@ class CounterfactualOptimizer:
         # Optimization Loop
         patience = 30
         plateau_counter = 0
-        min_risk_drop = 0.05 # log hazard must drop by at least 0.05
+        min_risk_drop = 0.01 # Relaxed to allow plans for high-risk patients
+        
+        trajectory = []
+        sysbp_idx = self.ae_feature_cols.index('SYSBP')
+        bmi_idx = self.ae_feature_cols.index('BMI')
+        chol_idx = self.ae_feature_cols.index('TOTCHOL')
+        
+        sysbp_c_idx = self.cont_cols.index('SYSBP')
+        bmi_c_idx = self.cont_cols.index('BMI')
+        chol_c_idx = self.cont_cols.index('TOTCHOL')
         
         for step in range(max_steps):
             optimizer.zero_grad()
@@ -227,6 +236,13 @@ class CounterfactualOptimizer:
             else:
                 plateau_counter += 1
                 
+            if step % 10 == 0 or step == max_steps - 1:
+                with torch.no_grad():
+                    s_val = (x_hat[0, sysbp_idx].item() * self.scaler.scale_[sysbp_c_idx]) + self.scaler.mean_[sysbp_c_idx]
+                    b_val = (x_hat[0, bmi_idx].item() * self.scaler.scale_[bmi_c_idx]) + self.scaler.mean_[bmi_c_idx]
+                    c_val = (x_hat[0, chol_idx].item() * self.scaler.scale_[chol_c_idx]) + self.scaler.mean_[chol_c_idx]
+                    trajectory.append({'step': step, 'SYSBP': float(s_val), 'BMI': float(b_val), 'TOTCHOL': float(c_val)})
+                
             if plateau_counter >= patience:
                 break
                 
@@ -260,15 +276,29 @@ class CounterfactualOptimizer:
                 x_cf_final = x_0.clone()
                 final_hazard = baseline_hazard
             
-        success = (baseline_hazard - final_hazard) > min_risk_drop
+        log_hazard_drop = baseline_hazard - final_hazard
+        
+        # 3-Tier Success Criteria
+        if log_hazard_drop >= 0.05:
+            status = 'strong'
+        elif log_hazard_drop >= 0.01:
+            status = 'partial'
+        else:
+            status = 'none'
+            
+        # Calculate Relative Risk Reduction (RRR)
+        relative_risk_reduction = 1.0 - np.exp(-log_hazard_drop)
         
         return {
-            'success': success,
+            'success': status != 'none', # Kept for backward compatibility, but UI should use status
+            'status': status,
             'baseline_hazard': baseline_hazard,
             'final_hazard': final_hazard,
-            'hazard_drop': baseline_hazard - final_hazard,
+            'log_hazard_drop': log_hazard_drop,
+            'relative_risk_reduction': relative_risk_reduction,
+            'x_orig': x_0[0].cpu().numpy(),
             'x_cf': x_cf_final[0].cpu().numpy(),
-            'x_orig': x_0[0].cpu().numpy()
+            'trajectory': trajectory
         }
 
 if __name__ == '__main__':

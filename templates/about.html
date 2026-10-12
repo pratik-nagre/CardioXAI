@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Research & Dataset · CardioXAI</title>
+    <meta name="description" content="Research context, dataset background, and academic information for the CardioXAI PhD thesis project.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:     #03050d;
+            --bg2:    #070c18;
+            --bg3:    #0b1220;
+            --border: rgba(59,126,255,0.12);
+            --blue:   #3b7eff;
+            --cyan:   #00d4ff;
+            --violet: #8b5cf6;
+            --green:  #10b981;
+            --amber:  #f59e0b;
+            --red:    #f43f5e;
+            --text:   #e8f0ff;
+            --text2:  #7a90b5;
+            --text3:  #3a4f6e;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+
+        /* NAV */
+        nav {
+            position: fixed; top:0; left:0; right:0; z-index:100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 3rem; backdrop-filter: blur(20px);
+            background: rgba(3,5,13,0.8); border-bottom: 1px solid var(--border);
+        }
+        .nav-logo { display:flex; align-items:center; gap:0.5rem; text-decoration:none; }
+        .nav-logo-icon { width:30px; height:30px; background:linear-gradient(135deg,var(--blue),var(--violet)); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:0.9rem; }
+        .nav-logo-text { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; background:linear-gradient(90deg,var(--cyan),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .nav-links { display:flex; gap:1.5rem; list-style:none; align-items:center; }
+        .nav-links a { color:var(--text2); text-decoration:none; font-size:0.875rem; font-weight:500; transition:color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color:var(--text); }
+        .nav-links .cta { background:linear-gradient(135deg,var(--blue),var(--violet)); color:white !important; padding:0.4rem 1rem; border-radius:8px; font-weight:600 !important; }
+
+        /* HERO */
+        .page-hero {
+            padding: 9rem 2rem 5rem;
+            text-align: center;
+            background: radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.07) 0%, transparent 70%);
+        }
+        .page-hero-tag { display:inline-block; font-size:0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--green); background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); padding:0.3rem 0.8rem; border-radius:999px; margin-bottom:1.5rem; }
+        .page-hero h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(2rem,4vw,3.5rem); font-weight:800; margin-bottom:1rem; }
+        .page-hero p { max-width:700px; margin:0 auto; color:var(--text2); font-size:1rem; line-height:1.7; }
+
+        /* CONTAINER */
+        .container { max-width:1000px; margin:0 auto; padding:0 2rem 6rem; }
+
+        /* SECTION */
+        section { margin-top:4rem; }
+        .section-tag { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:var(--cyan); margin-bottom:0.5rem; }
+        h2 { font-family:'Space Grotesk',sans-serif; font-size:2rem; font-weight:700; margin-bottom:1rem; }
+        p { color:var(--text2); line-height:1.75; font-size:0.95rem; margin-bottom:0.9rem; }
+        p:last-child { margin-bottom:0; }
+        strong { color:var(--text); font-weight:600; }
+
+        /* THESIS INFO CARD */
+        .thesis-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius:16px;
+            padding:2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap:1.5rem;
+            margin-top:2rem;
+        }
+        .thesis-field { display:flex; flex-direction:column; gap:0.2rem; }
+        .thesis-field .lbl { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); }
+        .thesis-field .val { font-size:0.92rem; color:var(--text); font-weight:500; }
+
+        /* PROBLEM STATEMENT */
+        .problem-box {
+            background: var(--bg3);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-left: 4px solid var(--cyan);
+            border-radius: 0 14px 14px 0;
+            padding: 1.75rem 2rem;
+            margin: 1.5rem 0;
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--text);
+            line-height: 1.7;
+        }
+        .problem-box cite { display:block; margin-top:0.75rem; font-size:0.78rem; color:var(--text2); font-style:normal; }
+
+        /* RELATED WORK CARDS */
+        .rw-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1.5rem; }
+        .rw-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius:12px;
+            padding:1.25rem;
+            transition: border-color 0.2s;
+        }
+        .rw-card:hover { border-color:rgba(59,126,255,0.3); }
+        .rw-card h4 { font-size:0.88rem; font-weight:700; color:var(--text); margin-bottom:0.4rem; }
+        .rw-card .year { font-size:0.65rem; font-weight:700; color:var(--cyan); margin-bottom:0.4rem; }
+        .rw-card p { font-size:0.78rem; color:var(--text2); line-height:1.55; margin:0; }
+
+        /* DATASET FACTS */
+        .facts-strip {
+            display:flex; flex-wrap:wrap; gap:1px;
+            background:var(--border);
+            border:1px solid var(--border);
+            border-radius:14px;
+            overflow:hidden;
+            margin-top:1.5rem;
+        }
+        .fact {
+            flex:1; min-width:150px;
+            background:var(--bg2);
+            padding:1.25rem 1.5rem;
+            text-align:center;
+        }
+        .fact .val { font-family:'Space Grotesk',sans-serif; font-size:1.75rem; font-weight:800; background:linear-gradient(135deg,var(--cyan),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .fact .lbl { font-size:0.7rem; color:var(--text2); margin-top:0.2rem; }
+
+        /* CONTRIBUTION LIST */
+        .contrib-list { list-style:none; display:flex; flex-direction:column; gap:0.75rem; margin-top:1.5rem; }
+        .contrib-item {
+            display:flex; gap:1rem; align-items:flex-start;
+            background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1rem 1.25rem;
+        }
+        .contrib-icon { font-size:1.3rem; flex-shrink:0; margin-top:0.1rem; }
+        .contrib-body h4 { font-size:0.88rem; font-weight:700; margin-bottom:0.25rem; }
+        .contrib-body p { font-size:0.8rem; color:var(--text2); line-height:1.55; margin:0; }
+
+        /* DIVIDER */
+        .divider { border:none; border-top:1px solid var(--border); margin:0; }
+
+        /* FUTURE WORK */
+        .fw-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1.5rem; }
+        .fw-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:1.25rem; }
+        .fw-card h4 { font-size:0.82rem; font-weight:700; color:var(--text); margin-bottom:0.4rem; }
+        .fw-card p { font-size:0.78rem; color:var(--text2); line-height:1.55; margin:0; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-icon">❤</div>
+        <span class="nav-logo-text">CardioXAI</span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/analysis">Dashboard</a></li>
+        <li><a href="/methodology">Methodology</a></li>
+        <li><a href="/about" class="active">About</a></li>
+        <li><a href="/analysis" class="cta">Open Dashboard →</a></li>
+    </ul>
+</nav>
+
+<div class="page-hero">
+    <div class="page-hero-tag">Research Context</div>
+    <h1>Research &amp; Dataset</h1>
+    <p>Background on the Framingham Heart Study, related work in counterfactual XAI, academic context, and the key research contributions of this thesis project.</p>
+</div>
+
+<div class="container">
+
+    <!-- Thesis Info -->
+    <section id="thesis">
+        <div class="section-tag">Thesis Overview</div>
+        <h2>About This Project</h2>
+        <p>This project represents a <strong>Major Project I submission</strong> investigating the application of Explainable AI and Counterfactual Recourse to the problem of cardiovascular risk reduction. The core premise is that simply <em>predicting</em> risk is insufficient — a clinically useful system must also generate actionable, feasible, and explainable pathways for reducing that risk.</p>
+        <div class="thesis-card">
+            <div class="thesis-field"><span class="lbl">Project Title</span><span class="val">Feasibility-Guided Latent Space Optimization for Cardiovascular Risk Counterfactuals</span></div>
+            <div class="thesis-field"><span class="lbl">Submission</span><span class="val">Major Project I · Semester VII</span></div>
+            <div class="thesis-field"><span class="lbl">Domain</span><span class="val">Clinical AI · Explainable ML · Counterfactual Reasoning</span></div>
+            <div class="thesis-field"><span class="lbl">Dataset</span><span class="val">Framingham Heart Study (frmgham2.csv)</span></div>
+            <div class="thesis-field"><span class="lbl">Primary Outcome</span><span class="val">10-Year Any Coronary Heart Disease (ANYCHD) Event</span></div>
+            <div class="thesis-field"><span class="lbl">Tech Stack</span><span class="val">PyTorch · lifelines · XGBoost · LightGBM · FastAPI · Chart.js</span></div>
+        </div>
+    </section>
+
+    <hr class="divider" style="margin-top:4rem">
+
+    <!-- Problem Statement -->
+    <section id="problem">
+        <div class="section-tag">Research Problem</div>
+        <h2>Problem Statement</h2>
+        <p>Cardiovascular diseases remain the leading cause of death globally. While machine learning models can predict CHD risk with high accuracy, they are often criticized as "black boxes" that provide predictions without insight or actionability. A physician who knows a patient's 10-year risk is 35% gains limited value without a corresponding answer to: <em>"What can we change to reduce this?"</em></p>
+        <div class="problem-box">
+            "Given a patient's clinical profile and a trained ensemble risk model, generate the minimal, feasible, and physiologically constrained set of clinical interventions that would move the patient from a high-risk to a low-risk classification — and explain why each intervention reduces risk."
+            <cite>— Core Research Question, CardioXAI</cite>
+        </div>
+        <p>This project addresses this gap by combining <strong>counterfactual recourse</strong> from algorithmic fairness literature with <strong>survival analysis</strong> from clinical biostatistics, mediated by a VAE-based latent space that enforces physiological realism.</p>
+    </section>
+
+    <hr class="divider" style="margin-top:4rem">
+
+    <!-- Dataset -->
+    <section id="dataset">
+        <div class="section-tag">Dataset</div>
+        <h2>The Framingham Heart Study</h2>
+        <p>The <strong>Framingham Heart Study (FHS)</strong> is one of the longest-running and most influential cardiovascular epidemiological studies in history. Begun in 1948 under the direction of the National Heart, Lung, and Blood Institute (NHLBI), it enrolled residents of Framingham, Massachusetts, and has followed them (and subsequent generations) through repeated clinical examinations.</p>
+        <p>The dataset used in this project (<code>frmgham2.csv</code>) contains longitudinal examinations across multiple periods. This study uses only the <strong>first examination (PERIOD=1)</strong>, treating it as a cross-sectional baseline snapshot to avoid temporal dependency complexity and ensure clean causal interpretation of features.</p>
+        <div class="facts-strip">
+            <div class="fact"><div class="val">1948</div><div class="lbl">Study Founded</div></div>
+            <div class="fact"><div class="val">4,434+</div><div class="lbl">Baseline Subjects</div></div>
+            <div class="fact"><div class="val">17</div><div class="lbl">Clinical Features Used</div></div>
+            <div class="fact"><div class="val">10yr</div><div class="lbl">Prediction Horizon</div></div>
+            <div class="fact"><div class="val">ANYCHD</div><div class="lbl">Primary Endpoint</div></div>
+        </div>
+    </section>
+
+    <hr class="divider" style="margin-top:4rem">
+
+    <!-- Related Work -->
+    <section id="related">
+        <div class="section-tag">Literature Context</div>
+        <h2>Related Work</h2>
+        <p>This project builds upon several key research threads: algorithmic recourse / counterfactual explanation, survival analysis in clinical AI, and deep generative models for tabular data.</p>
+        <div class="rw-grid">
+            <div class="rw-card">
+                <div class="year">2017 · Wachter et al.</div>
+                <h4>Counterfactual Explanations Without Opening the Black Box</h4>
+                <p>Seminal work proposing counterfactual explanations as a GDPR-compliant alternative to model interpretability. Introduced the "closest counterfactual" framing.</p>
+            </div>
+            <div class="rw-card">
+                <div class="year">2020 · Pawelczyk et al.</div>
+                <h4>Learning Model-Agnostic Counterfactual Explanations</h4>
+                <p>Proposed REVISE and similar methods using VAE latent space search for plausible counterfactual generation — a direct inspiration for this project's approach.</p>
+            </div>
+            <div class="rw-card">
+                <div class="year">2020 · Karimi et al.</div>
+                <h4>Model-Agnostic Counterfactual Explanations for Consequential Decisions</h4>
+                <p>Introduced the three-class constraint taxonomy (immutable, directional, actionable) that is central to the feasibility framework in this project.</p>
+            </div>
+            <div class="rw-card">
+                <div class="year">2022 · Verma et al.</div>
+                <h4>Counterfactual Explanations and Algorithmic Recourse</h4>
+                <p>Comprehensive survey of recourse methods, highlighting the gap between proximity-optimized counterfactuals and clinically actionable interventions.</p>
+            </div>
+            <div class="rw-card">
+                <div class="year">1972 · Cox, D.R.</div>
+                <h4>Regression Models and Life-Tables</h4>
+                <p>The foundational Cox Proportional Hazards model — still the gold standard for survival analysis in clinical research. Used here for its interpretable coefficients.</p>
+            </div>
+            <div class="rw-card">
+                <div class="year">2013 · Kingma & Welling</div>
+                <h4>Auto-Encoding Variational Bayes</h4>
+                <p>The VAE paper. The reparameterization trick enables differentiable sampling from the latent space, making gradient-based latent optimization tractable.</p>
+            </div>
+        </div>
+    </section>
+
+    <hr class="divider" style="margin-top:4rem">
+
+    <!-- Contributions -->
+    <section id="contributions">
+        <div class="section-tag">Research Contributions</div>
+        <h2>Key Contributions</h2>
+        <ul class="contrib-list">
+            <li class="contrib-item">
+                <span class="contrib-icon">🧩</span>
+                <div class="contrib-body">
+                    <h4>Integrated Survival + Probabilistic Risk Framework</h4>
+                    <p>Unlike most counterfactual systems that optimize a single classifier output, this system combines Cox log-hazard (survival model) with three tree-based classifiers (XGB, LGB, RF) into a unified risk objective. This provides more robust and clinically grounded optimization targets.</p>
+                </div>
+            </li>
+            <li class="contrib-item">
+                <span class="contrib-icon">🗺️</span>
+                <div class="contrib-body">
+                    <h4>Feasibility-Guided VAE Latent Space Search</h4>
+                    <p>By searching within the VAE's latent manifold rather than directly in feature space, the system ensures counterfactuals are consistent with the overall patient distribution — eliminating physiologically impossible feature combinations.</p>
+                </div>
+            </li>
+            <li class="contrib-item">
+                <span class="contrib-icon">⚕️</span>
+                <div class="contrib-body">
+                    <h4>Clinical-Grade Constraint Taxonomy</h4>
+                    <p>Formal implementation of immutable, directional, and actionable feature constraints as hard projection steps within the optimization loop. This ensures all recourse paths are medically and ethically valid.</p>
+                </div>
+            </li>
+            <li class="contrib-item">
+                <span class="contrib-icon">🔬</span>
+                <div class="contrib-body">
+                    <h4>Interpretable Feature Contribution Visualization</h4>
+                    <p>Patient-level XAI via exact Cox coefficient decomposition — no approximation (unlike SHAP or LIME). Provides additive, directional risk attribution that is directly legible to clinicians.</p>
+                </div>
+            </li>
+            <li class="contrib-item">
+                <span class="contrib-icon">🖥️</span>
+                <div class="contrib-body">
+                    <h4>End-to-End Clinical Decision Support Interface</h4>
+                    <p>A full-stack web application (FastAPI backend + interactive HTML/JS frontend) that enables physicians to load patient profiles, compute risk, and receive an AI-generated intervention prescription in real-time.</p>
+                </div>
+            </li>
+        </ul>
+    </section>
+
+    <hr class="divider" style="margin-top:4rem">
+
+    <!-- Future Work -->
+    <section id="future">
+        <div class="section-tag">Future Directions</div>
+        <h2>Limitations &amp; Future Work</h2>
+        <p>This project establishes a foundational framework with several clear avenues for future research and improvement:</p>
+        <div class="fw-grid">
+            <div class="fw-card">
+                <h4>🔄 SHAP Integration</h4>
+                <p>Augment Cox coefficient contributions with SHAP values from the tree ensemble models for richer, non-linear explainability across all model types.</p>
+            </div>
+            <div class="fw-card">
+                <h4>🏥 EHR Integration</h4>
+                <p>Extend to real Electronic Health Record data formats (HL7 FHIR). Validate system performance on external cardiovascular cohorts (SCORE2, MESA).</p>
+            </div>
+            <div class="fw-card">
+                <h4>🧬 Multi-Outcome</h4>
+                <p>Expand prediction to multiple competing cardiovascular endpoints: stroke, heart failure, atrial fibrillation, in addition to CHD.</p>
+            </div>
+            <div class="fw-card">
+                <h4>⏱️ Longitudinal Modeling</h4>
+                <p>Incorporate multiple FHS examination periods to model intervention trajectories over time rather than static cross-sectional counterfactuals.</p>
+            </div>
+            <div class="fw-card">
+                <h4>🤝 Clinician Validation</h4>
+                <p>Conduct a structured user study with cardiologists to evaluate clinical utility, trust, and actionability of the AI-generated prescriptions.</p>
+            </div>
+            <div class="fw-card">
+                <h4>📱 Mobile Interface</h4>
+                <p>Develop a responsive mobile interface for point-of-care use in clinical settings, with offline inference capability for low-connectivity environments.</p>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+</body>
+</html>

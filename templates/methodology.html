@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Methodology · CardioXAI</title>
+    <meta name="description" content="Technical methodology for the CardioXAI feasibility-guided cardiovascular risk counterfactual optimization system.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:        #03050d;
+            --bg2:       #070c18;
+            --bg3:       #0b1220;
+            --border:    rgba(59,126,255,0.15);
+            --border2:   rgba(59,126,255,0.08);
+            --blue:      #3b7eff;
+            --cyan:      #00d4ff;
+            --violet:    #8b5cf6;
+            --green:     #10b981;
+            --amber:     #f59e0b;
+            --red:       #f43f5e;
+            --text:      #e8f0ff;
+            --text2:     #7a90b5;
+            --text3:     #3a4f6e;
+            --mono:      'JetBrains Mono', monospace;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { scroll-behavior: smooth; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+
+        /* NAV */
+        nav {
+            position: fixed; top:0; left:0; right:0; z-index:100;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 3rem;
+            backdrop-filter: blur(20px);
+            background: rgba(3,5,13,0.8);
+            border-bottom: 1px solid var(--border);
+        }
+        .nav-logo { display:flex; align-items:center; gap:0.5rem; text-decoration:none; }
+        .nav-logo-icon { width:30px; height:30px; background:linear-gradient(135deg,var(--blue),var(--violet)); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:0.9rem; }
+        .nav-logo-text { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem; background:linear-gradient(90deg,var(--cyan),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .nav-links { display:flex; gap:1.5rem; list-style:none; align-items:center; }
+        .nav-links a { color:var(--text2); text-decoration:none; font-size:0.875rem; font-weight:500; transition:color 0.2s; }
+        .nav-links a:hover, .nav-links a.active { color:var(--text); }
+        .nav-links .cta { background:linear-gradient(135deg,var(--blue),var(--violet)); color:white !important; padding:0.4rem 1rem; border-radius:8px; font-weight:600 !important; }
+
+        /* HERO */
+        .page-hero {
+            padding: 9rem 2rem 5rem;
+            text-align: center;
+            background: radial-gradient(ellipse at 50% 0%, rgba(59,126,255,0.08) 0%, transparent 70%);
+        }
+        .page-hero-tag { display:inline-block; font-size:0.7rem; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--cyan); background:rgba(59,126,255,0.1); border:1px solid rgba(59,126,255,0.2); padding:0.3rem 0.8rem; border-radius:999px; margin-bottom:1.5rem; }
+        .page-hero h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(2rem,4vw,3.5rem); font-weight:800; margin-bottom:1rem; }
+        .page-hero p { max-width:700px; margin:0 auto; color:var(--text2); font-size:1rem; line-height:1.7; }
+
+        /* LAYOUT */
+        .layout { max-width:1100px; margin:0 auto; padding:0 2rem 6rem; display:grid; grid-template-columns:220px 1fr; gap:3rem; align-items:start; }
+
+        /* TOC */
+        .toc { position:sticky; top:5rem; }
+        .toc-title { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.75rem; }
+        .toc ul { list-style:none; display:flex; flex-direction:column; gap:0.15rem; }
+        .toc ul a { display:block; color:var(--text2); text-decoration:none; font-size:0.8rem; padding:0.35rem 0.6rem; border-radius:6px; border-left:2px solid transparent; transition:all 0.2s; }
+        .toc ul a:hover, .toc ul a.active { color:var(--cyan); border-left-color:var(--cyan); background:rgba(0,212,255,0.06); }
+
+        /* CONTENT */
+        .content { display:flex; flex-direction:column; gap:3.5rem; }
+
+        .method-section { scroll-margin-top: 6rem; }
+        .method-section-header { display:flex; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+        .method-section-num {
+            flex-shrink:0;
+            width:40px; height:40px; border-radius:10px;
+            display:flex; align-items:center; justify-content:center;
+            font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.9rem;
+        }
+        .method-section h2 { font-family:'Space Grotesk',sans-serif; font-size:1.5rem; font-weight:700; }
+        .method-section p { color:var(--text2); line-height:1.75; font-size:0.95rem; margin-bottom:1rem; }
+        .method-section p:last-child { margin-bottom: 0; }
+
+        /* Cards */
+        .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:1.5rem; }
+        .info-card {
+            background: var(--bg2);
+            border: 1px solid var(--border2);
+            border-radius:12px;
+            padding:1.25rem;
+        }
+        .info-card h4 { font-size:0.85rem; font-weight:700; margin-bottom:0.4rem; }
+        .info-card p { font-size:0.82rem; color:var(--text2); line-height:1.6; margin:0; }
+
+        /* Equation block */
+        .eq-block {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--blue);
+            border-radius:0 10px 10px 0;
+            padding: 1.25rem 1.5rem;
+            margin: 1.25rem 0;
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            line-height: 1.8;
+            color: var(--cyan);
+            overflow-x: auto;
+        }
+        .eq-comment { color: var(--text3); font-style: italic; font-family: 'Inter', sans-serif; font-size: 0.78rem; }
+
+        /* Feature table */
+        .feature-table { width:100%; border-collapse:collapse; margin-top:1.25rem; font-size:0.82rem; }
+        .feature-table th { text-align:left; padding:0.5rem 0.75rem; color:var(--text3); font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; border-bottom:1px solid var(--border2); }
+        .feature-table td { padding:0.55rem 0.75rem; border-bottom:1px solid var(--border2); }
+        .feature-table tr:hover td { background:rgba(255,255,255,0.02); }
+        .tag { display:inline-block; font-size:0.65rem; font-weight:600; padding:0.15rem 0.5rem; border-radius:4px; }
+        .tag-red { background:rgba(244,63,94,0.15); color:var(--red); }
+        .tag-amber { background:rgba(245,158,11,0.15); color:var(--amber); }
+        .tag-green { background:rgba(16,185,129,0.15); color:var(--green); }
+        .tag-blue { background:rgba(59,126,255,0.15); color:var(--cyan); }
+
+        /* Architecture diagram */
+        .arch-diagram {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 2rem;
+            margin-top: 1.5rem;
+        }
+        .arch-row { display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem; }
+        .arch-box {
+            flex: 1; text-align:center;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        .arch-box .arch-label { font-family: 'Space Grotesk', sans-serif; font-size:0.82rem; font-weight:700; margin-bottom:0.2rem; }
+        .arch-box .arch-sub { font-size:0.68rem; color:var(--text2); }
+        .arch-arrow { color:var(--text3); font-size:1.2rem; flex-shrink:0; }
+
+        /* Divider */
+        hr { border:none; border-top:1px solid var(--border2); margin:0.5rem 0; }
+
+        /* References */
+        .ref-list { list-style:none; display:flex; flex-direction:column; gap:0.75rem; }
+        .ref-item { display:flex; gap:1rem; }
+        .ref-num { flex-shrink:0; font-size:0.78rem; font-weight:700; color:var(--blue); font-family:var(--mono); }
+        .ref-body { font-size:0.82rem; color:var(--text2); line-height:1.55; }
+        .ref-body em { color:var(--text); font-style:normal; }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-icon">❤</div>
+        <span class="nav-logo-text">CardioXAI</span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/analysis">Dashboard</a></li>
+        <li><a href="/methodology" class="active">Methodology</a></li>
+        <li><a href="/about">About</a></li>
+        <li><a href="/analysis" class="cta">Open Dashboard →</a></li>
+    </ul>
+</nav>
+
+<!-- HERO -->
+<div class="page-hero">
+    <div class="page-hero-tag">Technical Methodology</div>
+    <h1>System Architecture &amp; Methods</h1>
+    <p>A detailed walkthrough of the data pipeline, model architectures, loss functions, constraint formulations, and explainability methods underlying the CardioXAI system.</p>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+    <!-- TOC -->
+    <aside class="toc">
+        <div class="toc-title">Contents</div>
+        <ul>
+            <li><a href="#dataset">1. Dataset</a></li>
+            <li><a href="#pipeline">2. Data Pipeline</a></li>
+            <li><a href="#risk-models">3. Risk Models</a></li>
+            <li><a href="#vae">4. VAE Architecture</a></li>
+            <li><a href="#optimizer">5. Optimizer</a></li>
+            <li><a href="#xai">6. Explainability</a></li>
+            <li><a href="#constraints">7. Feasibility Constraints</a></li>
+            <li><a href="#references">8. References</a></li>
+        </ul>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="content">
+
+        <!-- 1. Dataset -->
+        <section class="method-section" id="dataset">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(0,212,255,0.12);color:var(--cyan)">01</div>
+                <h2>Framingham Heart Study Dataset</h2>
+            </div>
+            <p>The study uses the publicly available <strong>Framingham Heart Study (FHS) Longitudinal Cohort</strong> dataset (<code>frmgham2.csv</code>), a landmark epidemiological study tracking cardiovascular events in adults from Framingham, Massachusetts. Only <strong>PERIOD = 1</strong> (baseline examination) observations are used to prevent temporal data leakage.</p>
+            <p>The primary outcome variable is <strong>ANYCHD</strong> (any coronary heart disease event), with <strong>TIMECHD</strong> converted to years as the survival duration. The sex variable is remapped from {1,2} → {0,1} for compatibility with binary cross-entropy objectives.</p>
+            <div class="info-grid">
+                <div class="info-card">
+                    <h4 style="color:var(--cyan)">Cohort</h4>
+                    <p>~4,434 patients at baseline (PERIOD=1) after filtering zero-duration survival records. 80/20 stratified train-test split on ANYCHD.</p>
+                </div>
+                <div class="info-card">
+                    <h4 style="color:var(--violet)">Outcome</h4>
+                    <p>Binary: ANYCHD (any CHD event). Survival duration: TIMECHD / 365.25 (years). 10-year event-free probability is the primary risk metric.</p>
+                </div>
+            </div>
+
+            <table class="feature-table">
+                <thead><tr><th>Feature</th><th>Type</th><th>Category</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>SEX</td><td><span class="tag tag-red">Immutable</span></td><td>Demographic</td><td>Biological sex (0=Female, 1=Male)</td></tr>
+                    <tr><td>PREVCHD, PREVAP, PREVMI, PREVSTRK, PREVHYP</td><td><span class="tag tag-red">Immutable</span></td><td>Medical History</td><td>Prior cardiovascular event indicators</td></tr>
+                    <tr><td>educ (one-hot)</td><td><span class="tag tag-red">Immutable</span></td><td>Demographic</td><td>Education level (4 categories)</td></tr>
+                    <tr><td>AGE</td><td><span class="tag tag-amber">Directional</span></td><td>Demographic</td><td>Can only increase; interventions cannot reduce age</td></tr>
+                    <tr><td>SYSBP, DIABP, TOTCHOL, BMI, GLUCOSE, HEARTRTE, CIGPDAY</td><td><span class="tag tag-green">Actionable</span></td><td>Clinical</td><td>Continuous features modifiable via intervention</td></tr>
+                    <tr><td>CURSMOKE, DIABETES, BPMEDS</td><td><span class="tag tag-green">Actionable</span></td><td>Clinical</td><td>Binary features modifiable via lifestyle/medication</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 2. Pipeline -->
+        <section class="method-section" id="pipeline">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(139,92,246,0.12);color:var(--violet)">02</div>
+                <h2>Data Pipeline</h2>
+            </div>
+            <p>Rigorous preprocessing is critical to avoid data leakage. The pipeline enforces a strict <strong>train-first</strong> paradigm: imputation statistics and the StandardScaler are fit only on the training set, then applied to both sets.</p>
+            <div class="eq-block">
+                PERIOD=1 filter → SEX remap → Train/Test Stratified Split (80/20) →<br>
+                Median imputation (continuous) → Mode imputation (binary/categorical) →<br>
+                One-hot encode 'educ' → StandardScaler (fit on train) → Save scaler/imputer to models/
+            </div>
+            <p>The imputation impact is logged per-feature (mean shift %, variance shift %) to validate that imputation does not materially distort the feature distributions. A RANDID overlap assertion prevents any patient from appearing in both train and test splits.</p>
+        </section>
+
+        <!-- 3. Risk Models -->
+        <section class="method-section" id="risk-models">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(59,126,255,0.12);color:var(--blue)">03</div>
+                <h2>Ensemble Risk Models</h2>
+            </div>
+            <p>The risk estimation layer combines a survival model with three probabilistic classifiers, forming an ensemble that provides both interpretable hazard scores and robust event probability estimates.</p>
+
+            <div class="info-grid">
+                <div class="info-card" style="border-color:rgba(0,212,255,0.2)">
+                    <h4 style="color:var(--cyan)">Cox Proportional Hazards (CoxPH)</h4>
+                    <p>Fitted via <code>lifelines.CoxPHFitter</code>. Provides interpretable log-hazard coefficients (β) and Kaplan-Meier-style survival functions. Primary source of XAI contributions.</p>
+                </div>
+                <div class="info-card" style="border-color:rgba(139,92,246,0.2)">
+                    <h4 style="color:var(--violet)">XGBoost Classifier</h4>
+                    <p>Gradient-boosted decision trees trained on ANYCHD. Predicts P(event) via <code>predict_proba</code>. Captures non-linear interaction effects between features.</p>
+                </div>
+                <div class="info-card" style="border-color:rgba(16,185,129,0.2)">
+                    <h4 style="color:var(--green)">LightGBM Classifier</h4>
+                    <p>Leaf-wise boosted classifier. More efficient on large tabular datasets. Provides complementary risk probability estimate to XGBoost.</p>
+                </div>
+                <div class="info-card" style="border-color:rgba(245,158,11,0.2)">
+                    <h4 style="color:var(--amber)">Random Forest Classifier</h4>
+                    <p>Bagged ensemble of decision trees. Provides high-variance reduction through averaging. Ensemble vote threshold is set at P > 0.15.</p>
+                </div>
+            </div>
+
+            <div class="eq-block">
+                h(t | x) = h₀(t) · exp(β₁x₁ + β₂x₂ + ... + βₙxₙ)  <span class="eq-comment"># Cox Hazard</span><br>
+                <br>
+                Ensemble Risk Vote = Σ 𝟏[P_model(x) > 0.15]  for model ∈ {XGB, LGB, RF}
+            </div>
+        </section>
+
+        <!-- 4. VAE -->
+        <section class="method-section" id="vae">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(244,63,94,0.12);color:var(--red)">04</div>
+                <h2>Variational Autoencoder (VAE)</h2>
+            </div>
+            <p>The VAE is the backbone of the counterfactual generation process. It is trained to learn a smooth, low-dimensional <strong>latent manifold</strong> that represents the distribution of physiologically plausible patients. Counterfactuals are searched within this latent space, ensuring all generated interventions are realistic.</p>
+
+            <div class="arch-diagram">
+                <div class="arch-row">
+                    <div class="arch-box">
+                        <div class="arch-label" style="color:var(--cyan)">Input x</div>
+                        <div class="arch-sub">21 clinical features (scaled)</div>
+                    </div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-box">
+                        <div class="arch-label" style="color:var(--blue)">Encoder</div>
+                        <div class="arch-sub">FC → ReLU → FC → ReLU</div>
+                    </div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-box">
+                        <div class="arch-label" style="color:var(--violet)">μ, σ (Latent z)</div>
+                        <div class="arch-sub">Reparameterization trick</div>
+                    </div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-box">
+                        <div class="arch-label" style="color:var(--amber)">Decoder</div>
+                        <div class="arch-sub">FC → ReLU → FC → Sigmoid</div>
+                    </div>
+                    <div class="arch-arrow">→</div>
+                    <div class="arch-box">
+                        <div class="arch-label" style="color:var(--green)">x̂ Reconstruction</div>
+                        <div class="arch-sub">21 features (scaled)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="eq-block">
+                <span class="eq-comment"># ELBO Loss (Evidence Lower Bound)</span><br>
+                L = E[log p(x|z)] - β · KL(q(z|x) || p(z))<br>
+                <br>
+                <span class="eq-comment"># Reconstruction term (MSE)</span><br>
+                L_recon = ||x - x̂||²<br>
+                <br>
+                <span class="eq-comment"># KL Divergence regularizer</span><br>
+                L_KL = -½ · Σ(1 + log(σ²) - μ² - σ²)
+            </div>
+        </section>
+
+        <!-- 5. Optimizer -->
+        <section class="method-section" id="optimizer">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(16,185,129,0.12);color:var(--green)">05</div>
+                <h2>Counterfactual Optimizer</h2>
+            </div>
+            <p>Given a patient's encoded latent vector <strong>z₀</strong>, the optimizer performs gradient-based search to find a modified latent vector <strong>z*</strong> that, when decoded, produces a patient profile with significantly reduced CHD risk while respecting clinical constraints.</p>
+            <div class="eq-block">
+                z* = argmin_z [ L_risk(decode(z)) + λ₁ · ||z - z₀||² + λ₂ · L_constraint(decode(z)) ]<br>
+                <br>
+                <span class="eq-comment"># L_risk: Combined ensemble risk loss</span><br>
+                L_risk = α · log_hazard(cox) + (1-α) · mean(proba(tree_models))<br>
+                <br>
+                <span class="eq-comment"># Constraint enforcement (projected gradient)</span><br>
+                x_cf[IMMUTABLE] ← x_orig[IMMUTABLE]  <span class="eq-comment"># hard freeze</span><br>
+                x_cf[AGE] ← max(x_cf[AGE], x_orig[AGE])  <span class="eq-comment"># directional</span>
+            </div>
+            <p>The optimizer uses <strong>Adam</strong> with a scheduled learning rate. At each step, the decoded counterfactual is projected back onto the feasibility manifold by replacing immutable features with their original values and clipping directional features.</p>
+        </section>
+
+        <!-- 6. XAI -->
+        <section class="method-section" id="xai">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(245,158,11,0.12);color:var(--amber)">06</div>
+                <h2>Explainability (XAI)</h2>
+            </div>
+            <p>Explainability is delivered through <strong>Cox coefficient feature contributions</strong>. For each patient, the log-partial-hazard contribution of each feature is computed as the product of the fitted Cox coefficient and the patient's scaled feature value:</p>
+            <div class="eq-block">
+                contribution_i = β_i · x_i  <span class="eq-comment"># for feature i</span><br>
+                <br>
+                <span class="eq-comment"># Positive → increases hazard (increases risk)</span><br>
+                <span class="eq-comment"># Negative → decreases hazard (protective)</span>
+            </div>
+            <p>This provides an additive, linear decomposition of the log-hazard score, directly interpretable by clinicians without requiring post-hoc approximation methods (e.g., SHAP). Contributions are sorted by absolute magnitude and visualized as a diverging bar chart, separately showing risk-increasing and protective factors.</p>
+        </section>
+
+        <!-- 7. Constraints -->
+        <section class="method-section" id="constraints">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(59,126,255,0.12);color:var(--blue)">07</div>
+                <h2>Feasibility Constraints</h2>
+            </div>
+            <p>A key differentiator of this system is the <strong>three-class constraint taxonomy</strong> that ensures counterfactuals are medically realistic and ethically sound:</p>
+            <div class="info-grid">
+                <div class="info-card" style="border-top:3px solid var(--red)">
+                    <h4 style="color:var(--red)">🔒 Immutable</h4>
+                    <p>Features that cannot change under any intervention: biological sex, prior cardiovascular events (CHD, MI, Stroke, Angina), education level. These are hard-locked to original values.</p>
+                </div>
+                <div class="info-card" style="border-top:3px solid var(--amber)">
+                    <h4 style="color:var(--amber)">↑ Directional</h4>
+                    <p>Features that can only change in one direction. Age can only increase over time; interventions cannot roll back biological age. Enforced via max() clipping.</p>
+                </div>
+                <div class="info-card" style="border-top:3px solid var(--green)">
+                    <h4 style="color:var(--green)">✓ Actionable</h4>
+                    <p>Features freely modifiable: blood pressure, cholesterol, BMI, glucose, smoking status, medications. These are the targets for clinical prescription generation.</p>
+                </div>
+                <div class="info-card" style="border-top:3px solid var(--blue)">
+                    <h4 style="color:var(--cyan)">📊 Recourse Tiers</h4>
+                    <p><strong>Strong:</strong> &gt;20% relative risk reduction. <strong>Partial:</strong> 5–20% reduction. <strong>None:</strong> &lt;5% achievable reduction within constraints.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 8. References -->
+        <section class="method-section" id="references">
+            <div class="method-section-header">
+                <div class="method-section-num" style="background:rgba(139,92,246,0.12);color:var(--violet)">08</div>
+                <h2>References</h2>
+            </div>
+            <ul class="ref-list">
+                <li class="ref-item"><span class="ref-num">[1]</span><div class="ref-body"><em>Wachter, S., Mittelstadt, B., & Russell, C.</em> (2017). Counterfactual Explanations Without Opening the Black Box: Automated Decisions and the GDPR. <em>Harvard Journal of Law & Technology, 31(2).</em></div></li>
+                <li class="ref-item"><span class="ref-num">[2]</span><div class="ref-body"><em>Pawelczyk, M., Broelemann, K., & Kasneci, G.</em> (2020). Learning Model-Agnostic Counterfactual Explanations for Tabular Data. <em>Proceedings of The Web Conference 2020 (WWW '20).</em></div></li>
+                <li class="ref-item"><span class="ref-num">[3]</span><div class="ref-body"><em>Kingma, D. P., & Welling, M.</em> (2013). Auto-Encoding Variational Bayes. <em>arXiv:1312.6114.</em></div></li>
+                <li class="ref-item"><span class="ref-num">[4]</span><div class="ref-body"><em>Cox, D. R.</em> (1972). Regression Models and Life-Tables. <em>Journal of the Royal Statistical Society, Series B, 34(2), 187–220.</em></div></li>
+                <li class="ref-item"><span class="ref-num">[5]</span><div class="ref-body"><em>Dawber, T. R., Meadors, G. F., & Moore, F. E.</em> (1951). Epidemiological Approaches to Heart Disease: The Framingham Study. <em>American Journal of Public Health, 41(3), 279–281.</em></div></li>
+                <li class="ref-item"><span class="ref-num">[6]</span><div class="ref-body"><em>Karimi, A. H., Barthe, G., Balle, B., & Valera, I.</em> (2020). Model-Agnostic Counterfactual Explanations for Consequential Decisions. <em>AISTATS 2020.</em></div></li>
+            </ul>
+        </section>
+
+    </div>
+</div>
+
+<script>
+// Active TOC highlighting
+const sections = document.querySelectorAll('.method-section');
+const tocLinks = document.querySelectorAll('.toc ul a');
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            tocLinks.forEach(a => a.classList.remove('active'));
+            const active = document.querySelector(`.toc ul a[href="#${entry.target.id}"]`);
+            if (active) active.classList.add('active');
+        }
+    });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>

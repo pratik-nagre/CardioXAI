@@ -115,18 +115,41 @@ for i, p_vec in enumerate(patient_vectors):
         if diff != 0:
             changes.append(f"{feat}: {int(orig_val)} -> {int(cf_val)}")
             
+    # Confusion Matrix Logic
+    old_success = res['log_hazard_drop'] >= 0.05
+    new_tier = res['status']
+    
+    confusion_status = "MATCH"
+    if old_success and new_tier == 'strong':
+        confusion_status = "MATCH (Old Success -> New Strong)"
+    elif old_success and new_tier != 'strong':
+        confusion_status = f"DEMOTED (Old Success -> {new_tier.upper()})"
+    elif not old_success and new_tier == 'strong':
+        confusion_status = "PROMOTED (Old Fail -> New Strong)"
+    elif not old_success and new_tier == 'partial':
+        confusion_status = "PROMOTED (Old Fail -> New Partial)"
+    elif not old_success and new_tier == 'none':
+        confusion_status = "MATCH (Old Fail -> New None)"
+        
     results.append({
         'Patient ID': f"Patient {i+1}",
-        'Baseline Log Hazard': f"{res['baseline_hazard']:.3f}",
-        'Post-Recourse Log Hazard': f"{res['final_hazard']:.3f}",
-        'Hazard Drop': f"{res['hazard_drop']:.3f}",
-        'Success': res['success'],
-        'Suggested Interventions': " | ".join(changes) if (changes and res['success']) else "No feasible recourse found."
+        'Baseline Hazard': f"{res['baseline_hazard']:.3f}",
+        'Post-Recourse Hazard': f"{res['final_hazard']:.3f}",
+        'Hazard Drop': f"{res['log_hazard_drop']:.3f}",
+        'Relative Risk Drop': f"{res['relative_risk_reduction']*100:.1f}%",
+        'Old Success (>=0.05)': old_success,
+        'New Tier Status': new_tier.upper(),
+        'Confusion Check': confusion_status,
+        'Suggested Interventions': " | ".join(changes) if (changes and res['status'] != 'none') else "No feasible recourse."
     })
 
 pd.set_option('display.max_colwidth', None)
 res_df = pd.DataFrame(results)
 display(res_df)
+
+# Print summary confusion matrix
+print("--- 3-Way Confusion Check Summary ---")
+print(res_df['Confusion Check'].value_counts())
 """))
 
     nb['cells'] = cells

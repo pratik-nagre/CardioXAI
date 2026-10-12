@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardioXAI — Feasibility-Guided Cardiovascular Risk Optimization</title>
+    <meta name="description" content="A PhD research system for explainable AI-driven cardiovascular risk counterfactual optimization using the Framingham Heart Study dataset.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #03050d;
+            --bg-secondary: #080d1a;
+            --accent-blue: #3b7eff;
+            --accent-cyan: #00d4ff;
+            --accent-violet: #8b5cf6;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --text-primary: #f0f4ff;
+            --text-secondary: #8899bb;
+            --glass-bg: rgba(10, 20, 50, 0.6);
+            --glass-border: rgba(59, 126, 255, 0.15);
+            --card-glow: rgba(59, 126, 255, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* ─── CANVAS ─────────────────────────── */
+        #three-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ─── NAV ────────────────────────────── */
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2rem 3rem;
+            backdrop-filter: blur(20px);
+            background: rgba(3, 5, 13, 0.7);
+            border-bottom: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            text-decoration: none;
+        }
+        .nav-logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        .nav-logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-links { display: flex; gap: 2rem; list-style: none; align-items: center; }
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--text-primary); }
+        .nav-cta {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+            color: white !important;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-weight: 600 !important;
+            transition: opacity 0.2s, transform 0.2s !important;
+        }
+        .nav-cta:hover { opacity: 0.85; transform: translateY(-1px) !important; color: white !important; }
+
+        /* ─── HERO ───────────────────────────── */
+        #hero {
+            position: relative;
+            z-index: 10;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 8rem 2rem 4rem;
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(59, 126, 255, 0.1);
+            border: 1px solid rgba(59, 126, 255, 0.3);
+            padding: 0.35rem 1rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            animation: fadeInDown 0.8s ease both;
+        }
+        .hero-badge .dot {
+            width: 6px; height: 6px;
+            background: var(--accent-emerald);
+            border-radius: 50%;
+            animation: pulse-dot 2s infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+        .hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 5.5rem);
+            font-weight: 800;
+            line-height: 1.05;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 0.9s ease 0.1s both;
+        }
+        .hero-title .line-1 { display: block; color: var(--text-primary); }
+        .hero-title .line-2 {
+            display: block;
+            background: linear-gradient(90deg, var(--accent-cyan) 0%, var(--accent-blue) 50%, var(--accent-violet) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-subtitle {
+            max-width: 700px;
+            font-size: clamp(1rem, 2vw, 1.2rem);
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 3rem;
+            animation: fadeInUp 0.9s ease 0.2s both;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            animation: fadeInUp 0.9s ease 0.3s both;
+        }
+        .btn-primary-hero {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2.25rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 40px rgba(59,126,255,0.3);
+        }
+        .btn-primary-hero:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 60px rgba(59,126,255,0.5);
+        }
+        .btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 2.25rem;
+            background: transparent;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            border: 1px solid var(--glass-border);
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .btn-ghost:hover {
+            background: var(--glass-bg);
+            border-color: var(--accent-blue);
+        }
+
+        /* hero scroll indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            animation: fadeInUp 1s ease 0.8s both;
+        }
+        .scroll-indicator .arrow {
+            width: 20px; height: 20px;
+            border-right: 2px solid var(--accent-blue);
+            border-bottom: 2px solid var(--accent-blue);
+            transform: rotate(45deg);
+            animation: bounce-arrow 1.5s infinite;
+        }
+        @keyframes bounce-arrow {
+            0%, 100% { transform: rotate(45deg) translateY(0); opacity: 1; }
+            50% { transform: rotate(45deg) translateY(6px); opacity: 0.4; }
+        }
+
+        /* ─── STATS STRIP ─────────────────────── */
+        .stats-strip {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 1px;
+            background: var(--glass-border);
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+            margin-bottom: 6rem;
+        }
+        .stat-item {
+            flex: 1;
+            min-width: 180px;
+            background: var(--bg-primary);
+            padding: 2rem 2.5rem;
+            text-align: center;
+        }
+        .stat-item .val {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-item .lbl {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            letter-spacing: 0.03em;
+        }
+
+        /* ─── SECTION SHARED ─────────────────── */
+        section {
+            position: relative;
+            z-index: 10;
+            padding: 5rem 2rem;
+        }
+        .section-tag {
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            line-height: 1.15;
+            margin-bottom: 1rem;
+        }
+        .section-sub {
+            color: var(--text-secondary);
+            max-width: 600px;
+            line-height: 1.7;
+            font-size: 1rem;
+        }
+        .section-header { text-align: center; max-width: 700px; margin: 0 auto 4rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* ─── FEATURES GRID ──────────────────── */
+        #features { background: var(--bg-secondary); }
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        .feature-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--card-accent, linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)));
+        }
+        .feature-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(59,126,255,0.4);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 30px var(--card-glow);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.25rem;
+            display: block;
+        }
+        .feature-card h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.15rem;
+            margin-bottom: 0.6rem;
+        }
+        .feature-card p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
+
+        /* ─── PIPELINE ───────────────────────── */
+        #pipeline { background: var(--bg-primary); }
+        .pipeline-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            position: relative;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .pipeline-steps::before {
+            content: '';
+            position: absolute;
+            left: 2.5rem;
+            top: 0; bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, var(--accent-blue), var(--accent-violet), var(--accent-emerald));
+        }
+        .pipeline-step {
+            display: flex;
+            gap: 2rem;
+            padding: 2rem 0;
+            align-items: flex-start;
+        }
+        .step-num {
+            flex-shrink: 0;
+            width: 5rem; height: 5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 800;
+            font-size: 1.5rem;
+            border: 3px solid;
+            position: relative;
+            z-index: 1;
+            background: var(--bg-primary);
+        }
+        .pipeline-step:nth-child(1) .step-num { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+        .pipeline-step:nth-child(2) .step-num { color: var(--accent-blue); border-color: var(--accent-blue); }
+        .pipeline-step:nth-child(3) .step-num { color: var(--accent-violet); border-color: var(--accent-violet); }
+        .pipeline-step:nth-child(4) .step-num { color: var(--accent-emerald); border-color: var(--accent-emerald); }
+        .step-content { padding-top: 0.75rem; }
+        .step-content h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .step-content p { color: var(--text-secondary); line-height: 1.65; font-size: 0.95rem; max-width: 600px; }
+        .step-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+        .step-tag {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            background: rgba(59,126,255,0.12);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(59,126,255,0.2);
+            letter-spacing: 0.05em;
+        }
+
+        /* ─── PAGES CTA GRID ─────────────────── */
+        #explore { background: var(--bg-secondary); }
+        .pages-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .page-card {
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            min-height: 260px;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            transition: transform 0.3s;
+        }
+        .page-card:hover { transform: scale(1.02); }
+        .page-card-bg {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.4s;
+        }
+        .page-card:hover .page-card-bg { transform: scale(1.08); }
+        .page-card-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 20%, rgba(3,5,13,0.95) 100%);
+        }
+        .page-card-content {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            padding: 2rem;
+        }
+        .page-card-tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            margin-bottom: 0.75rem;
+        }
+        .page-card h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 0.4rem;
+        }
+        .page-card p { color: rgba(255,255,255,0.6); font-size: 0.85rem; line-height: 1.5; }
+        .page-card-arrow {
+            position: absolute;
+            top: 1.5rem; right: 1.5rem;
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .page-card:hover .page-card-arrow { background: rgba(255,255,255,0.2); }
+
+        /* ─── FOOTER ─────────────────────────── */
+        footer {
+            position: relative;
+            z-index: 10;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--glass-border);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        .footer-logo {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .footer-meta { color: var(--text-secondary); font-size: 0.85rem; line-height: 1.8; }
+        .footer-links { display: flex; gap: 2rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap; }
+        .footer-links a { color: var(--text-secondary); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--accent-cyan); }
+
+        /* ─── ANIMATIONS ─────────────────────── */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<!-- 3D Canvas -->
+<canvas id="three-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-icon">❤</div>
+        <span class="nav-logo-text">CardioXAI</span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="#features">Overview</a></li>
+        <li><a href="/methodology">Methodology</a></li>
+        <li><a href="/about">Research</a></li>
+        <li><a href="/analysis" class="nav-cta">Open Dashboard →</a></li>
+    </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+    <div class="hero-badge">
+        <span class="dot"></span>
+        PhD Research Project · Major Project I · Sem VII
+    </div>
+    <h1 class="hero-title">
+        <span class="line-1">Counterfactual Recourse for</span>
+        <span class="line-2">Cardiovascular Risk</span>
+    </h1>
+    <p class="hero-subtitle">
+        A Feasibility-Guided Latent Space Optimization framework that generates clinically actionable,
+        AI-explained pathways to reduce 10-year coronary heart disease risk for individual patients.
+    </p>
+    <div class="hero-actions">
+        <a href="/analysis" class="btn-primary-hero">🫀 Open Clinical Dashboard</a>
+        <a href="/methodology" class="btn-ghost">📖 Read Methodology</a>
+    </div>
+    <div class="scroll-indicator">
+        <span>Scroll to explore</span>
+        <div class="arrow"></div>
+    </div>
+</section>
+
+<!-- STATS STRIP -->
+<div class="stats-strip">
+    <div class="stat-item">
+        <div class="val">4,434</div>
+        <div class="lbl">Patient Cohort (Framingham)</div>
+    </div>
+    <div class="stat-item">
+        <div class="val">4</div>
+        <div class="lbl">ML Models (Cox, XGB, LGB, RF)</div>
+    </div>
+    <div class="stat-item">
+        <div class="val">10-Yr</div>
+        <div class="lbl">CHD Event Prediction Window</div>
+    </div>
+    <div class="stat-item">
+        <div class="val">XAI</div>
+        <div class="lbl">Explainable Counterfactuals</div>
+    </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+    <div class="container">
+        <div class="section-header reveal">
+            <div class="section-tag">Core Contributions</div>
+            <h2 class="section-title">What Makes This System Unique</h2>
+            <p class="section-sub">Bridging the gap between black-box ML predictions and clinically actionable, explainable patient pathways.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #3b7eff, #00d4ff)">
+                <span class="feature-icon">🧠</span>
+                <h3>Latent Space Optimization</h3>
+                <p>Uses a Variational Autoencoder to project patients into a smooth latent manifold, ensuring counterfactuals are physiologically plausible rather than arbitrary feature perturbations.</p>
+            </div>
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #8b5cf6, #ec4899)">
+                <span class="feature-icon">⚖️</span>
+                <h3>Feasibility Constraints</h3>
+                <p>Counterfactual generation respects immutable features (sex, prior events) and applies directional constraints (age cannot decrease), ensuring medical realism in all interventions.</p>
+            </div>
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #10b981, #3b7eff)">
+                <span class="feature-icon">📊</span>
+                <h3>Ensemble Risk Scoring</h3>
+                <p>Combines Cox Proportional Hazards survival analysis with XGBoost, LightGBM, and Random Forest classifiers to produce robust, consensus-driven risk estimates.</p>
+            </div>
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #f59e0b, #f43f5e)">
+                <span class="feature-icon">🔬</span>
+                <h3>Explainability (XAI)</h3>
+                <p>Feature-level Cox coefficient contributions are visualized for every patient, showing exactly which clinical factors drive risk up or protect against cardiovascular disease.</p>
+            </div>
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #00d4ff, #10b981)">
+                <span class="feature-icon">💊</span>
+                <h3>Clinical Prescription</h3>
+                <p>The system generates step-by-step intervention plans — e.g., target BMI to 26.5, reduce cigarettes to 0 — providing physicians with concrete, prioritized action items.</p>
+            </div>
+            <div class="feature-card reveal" style="--card-accent: linear-gradient(90deg, #f43f5e, #8b5cf6)">
+                <span class="feature-icon">📈</span>
+                <h3>Survival Trajectory</h3>
+                <p>Kaplan-Meier-style survival curves for both baseline and optimized patient profiles allow visual comparison of risk reduction over 1, 3, 5, and 10-year horizons.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline">
+    <div class="container">
+        <div class="section-header reveal">
+            <div class="section-tag">Technical Pipeline</div>
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-sub">A four-stage pipeline from raw patient data to actionable clinical recourse.</p>
+        </div>
+        <div class="pipeline-steps">
+            <div class="pipeline-step reveal">
+                <div class="step-num">01</div>
+                <div class="step-content">
+                    <h3>Data Preprocessing & Feature Engineering</h3>
+                    <p>The Framingham Heart Study Cohort (PERIOD=1 baseline) is stratified-split to prevent leakage. Continuous features are scaled with StandardScaler, categorical education is one-hot encoded, and missingness is imputed using train-set statistics.</p>
+                    <div class="step-tags">
+                        <span class="step-tag">Framingham Dataset</span>
+                        <span class="step-tag">StandardScaler</span>
+                        <span class="step-tag">Train/Test Split</span>
+                        <span class="step-tag">Median Imputation</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pipeline-step reveal">
+                <div class="step-num">02</div>
+                <div class="step-content">
+                    <h3>Ensemble Risk Model Training</h3>
+                    <p>A Cox Proportional Hazards model provides survival analysis and interpretable log-hazard coefficients. XGBoost, LightGBM, and Random Forest classifiers provide complementary probabilistic risk estimates, forming an ensemble voting system.</p>
+                    <div class="step-tags">
+                        <span class="step-tag">Cox PHM (lifelines)</span>
+                        <span class="step-tag">XGBoost</span>
+                        <span class="step-tag">LightGBM</span>
+                        <span class="step-tag">Random Forest</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pipeline-step reveal">
+                <div class="step-num">03</div>
+                <div class="step-content">
+                    <h3>Variational Autoencoder (VAE) Manifold Learning</h3>
+                    <p>A deep VAE is trained on the patient feature space to learn a smooth, low-dimensional latent representation. This ensures that optimized counterfactual patients remain "on-manifold" and physiologically plausible.</p>
+                    <div class="step-tags">
+                        <span class="step-tag">PyTorch VAE</span>
+                        <span class="step-tag">Latent Space</span>
+                        <span class="step-tag">Reconstruction Loss</span>
+                        <span class="step-tag">KL Divergence</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pipeline-step reveal">
+                <div class="step-num">04</div>
+                <div class="step-content">
+                    <h3>Feasibility-Guided Counterfactual Optimization</h3>
+                    <p>The optimizer performs gradient-based search in latent space to minimize the ensemble risk score, subject to constraints: immutable features are frozen, directional features are bounded, and the result is decoded back to native feature space as a clinical prescription.</p>
+                    <div class="step-tags">
+                        <span class="step-tag">Adam Optimizer</span>
+                        <span class="step-tag">Immutability Constraints</span>
+                        <span class="step-tag">Counterfactual Recourse</span>
+                        <span class="step-tag">Risk Reduction</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- EXPLORE PAGES -->
+<section id="explore">
+    <div class="container">
+        <div class="section-header reveal">
+            <div class="section-tag">Navigation</div>
+            <h2 class="section-title">Explore the System</h2>
+            <p class="section-sub">Each page serves a distinct purpose — from real-time patient analysis to deep methodology documentation.</p>
+        </div>
+        <div class="pages-grid">
+            <a href="/analysis" class="page-card reveal">
+                <div class="page-card-bg" style="background: linear-gradient(135deg, #0d1b4b 0%, #1a0a2e 100%);"></div>
+                <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 50%, rgba(59,126,255,0.3), transparent 70%);"></div>
+                <div class="page-card-overlay"></div>
+                <div class="page-card-arrow">→</div>
+                <div class="page-card-content">
+                    <span class="page-card-tag" style="background:rgba(59,126,255,0.2);color:#3b7eff;">Clinical Tool</span>
+                    <h3>Patient Risk Dashboard</h3>
+                    <p>Interactive clinical dashboard. Load patient profiles, compute baseline risk, and generate optimized intervention pathways.</p>
+                </div>
+            </a>
+            <a href="/methodology" class="page-card reveal">
+                <div class="page-card-bg" style="background: linear-gradient(135deg, #1a0a2e 0%, #0d2e1a 100%);"></div>
+                <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 40%, rgba(139,92,246,0.3), transparent 70%);"></div>
+                <div class="page-card-overlay"></div>
+                <div class="page-card-arrow">→</div>
+                <div class="page-card-content">
+                    <span class="page-card-tag" style="background:rgba(139,92,246,0.2);color:#8b5cf6;">Research</span>
+                    <h3>Methodology & Architecture</h3>
+                    <p>Deep dive into the VAE architecture, loss functions, constraint formulations, and XAI interpretability methods used in this system.</p>
+                </div>
+            </a>
+            <a href="/about" class="page-card reveal">
+                <div class="page-card-bg" style="background: linear-gradient(135deg, #0d2e1a 0%, #2e1a0d 100%);"></div>
+                <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%, rgba(16,185,129,0.3), transparent 70%);"></div>
+                <div class="page-card-overlay"></div>
+                <div class="page-card-arrow">→</div>
+                <div class="page-card-content">
+                    <span class="page-card-tag" style="background:rgba(16,185,129,0.2);color:#10b981;">About</span>
+                    <h3>Research & Dataset</h3>
+                    <p>Background on the Framingham Heart Study, related work in counterfactual XAI, and the academic context of this thesis project.</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="footer-logo">CardioXAI</div>
+    <div class="footer-meta">
+        Feasibility-Guided Latent Space Optimization for Cardiovascular Risk Counterfactuals<br>
+        Major Project I · Semester VII · PhD Research<br>
+        Framingham Heart Study Dataset · 2026
+    </div>
+    <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/analysis">Dashboard</a>
+        <a href="/methodology">Methodology</a>
+        <a href="/about">About</a>
+        <a href="http://localhost:8000/docs" target="_blank">API Docs</a>
+    </div>
+</footer>
+
+<script>
+// ── Three.js Neural Network Particle System ─────────────────────────────────
+(function() {
+    const canvas = document.getElementById('three-canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 80;
+
+    // Particle system
+    const PARTICLE_COUNT = 250;
+    const positions = new Float32Array(PARTICLE_COUNT * 3);
+    const velocities = [];
+    const sizes = new Float32Array(PARTICLE_COUNT);
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        positions[i * 3]     = (Math.random() - 0.5) * 200;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 120;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+        velocities.push({
+            x: (Math.random() - 0.5) * 0.04,
+            y: (Math.random() - 0.5) * 0.04,
+            z: (Math.random() - 0.5) * 0.02
+        });
+        sizes[i] = Math.random() * 1.5 + 0.5;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const mat = new THREE.PointsMaterial({
+        color: 0x3b7eff,
+        size: 0.9,
+        transparent: true,
+        opacity: 0.7,
+        sizeAttenuation: true
+    });
+
+    const particles = new THREE.Points(geo, mat);
+    scene.add(particles);
+
+    // Connection lines
+    const MAX_DIST = 30;
+    let linesMesh = null;
+
+    function buildLines() {
+        const linePositions = [];
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+                const dx = positions[i*3]   - positions[j*3];
+                const dy = positions[i*3+1] - positions[j*3+1];
+                const dz = positions[i*3+2] - positions[j*3+2];
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                if (dist < MAX_DIST) {
+                    linePositions.push(
+                        positions[i*3], positions[i*3+1], positions[i*3+2],
+                        positions[j*3], positions[j*3+1], positions[j*3+2]
+                    );
+                }
+            }
+        }
+        if (linesMesh) { scene.remove(linesMesh); linesMesh.geometry.dispose(); }
+        const lineGeo = new THREE.BufferGeometry();
+        lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+        linesMesh = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
+            color: 0x3b7eff, transparent: true, opacity: 0.12
+        }));
+        scene.add(linesMesh);
+    }
+
+    let mouse = { x: 0, y: 0 };
+    document.addEventListener('mousemove', e => {
+        mouse.x = (e.clientX / window.innerWidth - 0.5) * 2;
+        mouse.y = -(e.clientY / window.innerHeight - 0.5) * 2;
+    });
+
+    let frame = 0;
+    function animate() {
+        requestAnimationFrame(animate);
+        frame++;
+
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+            positions[i*3]   += velocities[i].x;
+            positions[i*3+1] += velocities[i].y;
+            positions[i*3+2] += velocities[i].z;
+
+            if (Math.abs(positions[i*3])   > 100) velocities[i].x *= -1;
+            if (Math.abs(positions[i*3+1]) > 60)  velocities[i].y *= -1;
+            if (Math.abs(positions[i*3+2]) > 30)  velocities[i].z *= -1;
+        }
+        geo.attributes.position.needsUpdate = true;
+
+        // Rebuild lines every 5 frames
+        if (frame % 5 === 0) buildLines();
+
+        // Gentle camera drift
+        camera.position.x += (mouse.x * 8 - camera.position.x) * 0.04;
+        camera.position.y += (mouse.y * 5 - camera.position.y) * 0.04;
+        camera.lookAt(scene.position);
+
+        particles.rotation.y += 0.0005;
+        renderer.render(scene, camera);
+    }
+
+    buildLines();
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+})();
+
+// ── Scroll Reveal ───────────────────────────────────────────────────────────
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+            setTimeout(() => entry.target.classList.add('visible'), i * 80);
+        }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+reveals.forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

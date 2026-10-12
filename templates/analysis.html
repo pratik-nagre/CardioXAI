@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Risk Dashboard · CardioXAI</title>
+    <meta name="description" content="Clinical decision support dashboard for cardiovascular risk assessment and intervention planning.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg:       #03070f;
+            --panel:    #080e1c;
+            --card:     #0c1526;
+            --card2:    #0f1a2e;
+            --input-bg: #050b16;
+            --border:   #16263d;
+            --border2:  #1f3552;
+            --blue:     #2d7fff;
+            --cyan:     #00bfff;
+            --green:    #00c87a;
+            --red:      #ff3d5a;
+            --amber:    #ffaa00;
+            --violet:   #9b6dff;
+            --t1:       #ddeeff;
+            --t2:       #6888aa;
+            --t3:       #2e4460;
+            --sidebar:  272px;
+            /* Clinical traffic colors */
+            --c-ok:     #00c87a;
+            --c-warn:   #ffaa00;
+            --c-bad:    #ff3d5a;
+            --c-ok-bg:  rgba(0,200,122,0.08);
+            --c-warn-bg:rgba(255,170,0,0.08);
+            --c-bad-bg: rgba(255,61,90,0.08);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; overflow:hidden; }
+        body { background:var(--bg); color:var(--t1); font-family:'Inter',sans-serif; display:flex; flex-direction:column; }
+
+        /* ─── TOPBAR ──────────────────────────── */
+        .topbar {
+            height:52px; background:var(--panel); border-bottom:1px solid var(--border);
+            display:flex; align-items:center; padding:0 1.25rem; gap:1rem; flex-shrink:0; z-index:50;
+        }
+        .tlogo { display:flex; align-items:center; gap:0.4rem; text-decoration:none; }
+        .tlogo-icon { width:26px; height:26px; background:linear-gradient(135deg,var(--blue),var(--violet)); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:0.8rem; }
+        .tlogo-text { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:0.95rem; background:linear-gradient(90deg,var(--cyan),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .tsep { width:1px; height:20px; background:var(--border); }
+        .tpage { font-size:0.8rem; color:var(--t2); font-weight:500; }
+        .tnav { margin-left:auto; display:flex; gap:0.25rem; }
+        .tnav a { color:var(--t2); text-decoration:none; font-size:0.78rem; padding:0.3rem 0.65rem; border-radius:6px; transition:all 0.2s; }
+        .tnav a:hover { background:var(--card); color:var(--t1); }
+        .tnav a.active { background:rgba(45,127,255,0.15); color:var(--cyan); }
+
+        /* ─── LAYOUT ──────────────────────────── */
+        .app { flex:1; display:flex; overflow:hidden; }
+
+        /* ─── SIDEBAR ─────────────────────────── */
+        .sidebar {
+            width:var(--sidebar); background:var(--panel); border-right:1px solid var(--border);
+            display:flex; flex-direction:column; overflow:hidden; flex-shrink:0;
+        }
+        .sb-head { padding:0.85rem 1rem; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:0.6rem; }
+        .sb-head-row { display:flex; justify-content:space-between; align-items:center; }
+        .sb-label { font-size:0.62rem; font-weight:700; color:var(--t3); text-transform:uppercase; letter-spacing:0.1em; }
+        .add-btn { width:22px; height:22px; border-radius:5px; background:rgba(45,127,255,0.12); border:1px solid rgba(45,127,255,0.25); color:var(--cyan); font-size:0.95rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .patient-sel { width:100%; background:var(--input-bg); border:1px solid var(--border2); color:var(--t1); padding:0.45rem 0.7rem; border-radius:7px; font-size:0.78rem; font-family:'Inter',sans-serif; cursor:pointer; }
+        .sb-scroll { flex:1; overflow-y:auto; padding-bottom:0.75rem; }
+        .sb-scroll::-webkit-scrollbar { width:3px; }
+        .sb-scroll::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+        .fsec { padding:0.65rem 0; }
+        .fsec-title { font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--blue); padding:0 1rem 0.35rem; border-bottom:1px solid var(--border); margin-bottom:0.4rem; }
+        .field { padding:0.28rem 1rem; }
+        .field label { display:block; font-size:0.68rem; color:var(--t2); margin-bottom:0.18rem; }
+        .field input, .field select {
+            width:100%; background:var(--input-bg); border:1px solid var(--border);
+            color:var(--t1); padding:0.38rem 0.55rem; border-radius:6px; font-size:0.8rem; font-family:'Inter',sans-serif;
+        }
+        .field input:focus, .field select:focus { outline:none; border-color:var(--blue); }
+        .sb-actions { padding:0.85rem 1rem; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:0.4rem; }
+        .btn-calc {
+            width:100%; padding:0.7rem; background:linear-gradient(135deg,var(--blue),var(--violet));
+            border:none; border-radius:9px; color:white; font-weight:700; font-size:0.83rem; cursor:pointer;
+            font-family:'Inter',sans-serif; transition:opacity 0.2s, transform 0.15s;
+            display:flex; align-items:center; justify-content:center; gap:0.4rem;
+        }
+        .btn-calc:hover { opacity:0.88; transform:translateY(-1px); }
+        .btn-calc:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+        .btn-opt {
+            width:100%; padding:0.7rem; background:linear-gradient(135deg,#047857,#059669);
+            border:none; border-radius:9px; color:white; font-weight:700; font-size:0.83rem; cursor:pointer;
+            font-family:'Inter',sans-serif; transition:opacity 0.2s, transform 0.15s;
+            display:none; align-items:center; justify-content:center; gap:0.4rem;
+        }
+        .btn-opt:hover { opacity:0.88; transform:translateY(-1px); }
+        .btn-opt:disabled { opacity:0.45; cursor:not-allowed; transform:none; }
+
+        /* ─── MAIN ────────────────────────────── */
+        .main { flex:1; overflow-y:auto; background:var(--bg); display:flex; flex-direction:column; gap:0; }
+        .main::-webkit-scrollbar { width:4px; }
+        .main::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+
+        /* ─── PATIENT HEADER ──────────────────── */
+        .patient-header {
+            background:var(--panel); border-bottom:1px solid var(--border);
+            padding:1.1rem 1.75rem; display:flex; align-items:center; gap:1.5rem; flex-wrap:wrap;
+        }
+        .ph-avatar {
+            width:48px; height:48px; border-radius:50%;
+            background:linear-gradient(135deg,var(--blue),var(--violet));
+            display:flex; align-items:center; justify-content:center;
+            font-size:1.3rem; flex-shrink:0;
+        }
+        .ph-info { flex:1; }
+        .ph-name { font-family:'Space Grotesk',sans-serif; font-size:1.1rem; font-weight:700; }
+        .ph-meta { font-size:0.75rem; color:var(--t2); margin-top:0.15rem; }
+        .ph-vitals { display:flex; gap:1.25rem; flex-wrap:wrap; }
+        .ph-vital { text-align:center; }
+        .ph-vital-val { font-size:1rem; font-weight:700; }
+        .ph-vital-lbl { font-size:0.62rem; color:var(--t2); text-transform:uppercase; letter-spacing:0.05em; margin-top:0.1rem; }
+        .ph-risk-pill {
+            display:flex; align-items:center; gap:0.5rem;
+            padding:0.5rem 1.1rem; border-radius:999px; font-weight:700; font-size:0.85rem;
+            border:1px solid;
+        }
+        .ph-risk-pill .dot { width:8px; height:8px; border-radius:50%; animation:pulsedot 1.8s infinite; }
+        @keyframes pulsedot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
+
+        /* ─── SECTION WRAPPER ─────────────────── */
+        .scroll-content { padding:1.25rem 1.75rem; display:flex; flex-direction:column; gap:1.25rem; }
+
+        /* ─── CLINICAL IMPRESSION BOX ─────────── */
+        .impression-box {
+            background:var(--card); border:1px solid var(--border); border-radius:13px;
+            padding:1.25rem 1.5rem; border-left:4px solid var(--blue);
+        }
+        .ib-title { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--cyan); margin-bottom:0.5rem; }
+        .ib-text { font-size:0.9rem; line-height:1.7; color:var(--t1); }
+        .ib-text strong { color:white; }
+        .ib-empty { color:var(--t3); font-style:italic; font-size:0.88rem; }
+
+        /* ─── GRID LAYOUTS ────────────────────── */
+        .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.25rem; }
+        .grid-2 { display:grid; grid-template-columns:3fr 2fr; gap:1.25rem; }
+        .grid-2b { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
+
+        /* ─── CARD ────────────────────────────── */
+        .card {
+            background:var(--card); border:1px solid var(--border); border-radius:13px; padding:1.1rem 1.25rem;
+        }
+        .card-head { margin-bottom:0.85rem; }
+        .card-title { font-family:'Space Grotesk',sans-serif; font-size:0.88rem; font-weight:700; }
+        .card-sub { font-size:0.72rem; color:var(--t2); margin-top:0.15rem; line-height:1.4; }
+
+        /* ─── RISK GAUGE CARD ─────────────────── */
+        .gauge-card {
+            background:var(--card); border:1px solid var(--border); border-radius:13px;
+            padding:1.1rem 1.25rem; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+        }
+        .gauge-wrap { position:relative; width:130px; height:130px; }
+        .gauge-wrap svg { width:130px; height:130px; }
+        .gauge-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        #riskPct { font-family:'Space Grotesk',sans-serif; font-size:1.9rem; font-weight:800; }
+        .gauge-sublbl { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.07em; color:var(--t2); }
+        .gauge-tier { margin-top:0.6rem; font-size:0.82rem; font-weight:700; }
+        .gauge-interp { margin-top:0.3rem; font-size:0.72rem; color:var(--t2); line-height:1.4; max-width:150px; }
+
+        /* ─── ENSEMBLE CARD ───────────────────── */
+        .ensemble-row { display:flex; flex-direction:column; gap:0.6rem; margin-top:0.25rem; }
+        .ensemble-item { display:flex; align-items:center; gap:0.75rem; }
+        .ei-label { font-size:0.72rem; color:var(--t2); width:90px; flex-shrink:0; }
+        .ei-bar-track { flex:1; height:7px; background:var(--input-bg); border-radius:99px; overflow:hidden; }
+        .ei-bar-fill { height:100%; border-radius:99px; transition:width 0.8s ease; }
+        .ei-val { font-size:0.72rem; font-weight:700; width:40px; text-align:right; flex-shrink:0; }
+        .ei-vote { font-size:0.65rem; padding:0.15rem 0.4rem; border-radius:4px; flex-shrink:0; }
+        .vote-yes { background:rgba(255,61,90,0.15); color:var(--red); }
+        .vote-no  { background:rgba(0,200,122,0.12); color:var(--green); }
+
+        /* ─── RISK FACTOR TILES ───────────────── */
+        .rf-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(155px, 1fr)); gap:0.75rem; }
+        .rf-tile {
+            background:var(--card2); border:1px solid var(--border); border-radius:10px;
+            padding:0.85rem 1rem; position:relative; overflow:hidden;
+            transition:transform 0.2s; cursor:default;
+        }
+        .rf-tile:hover { transform:translateY(-2px); }
+        .rf-tile::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+        .rf-ok::before  { background:var(--c-ok); }
+        .rf-warn::before { background:var(--c-warn); }
+        .rf-bad::before  { background:var(--c-bad); }
+        .rf-ok   { background:var(--c-ok-bg); border-color:rgba(0,200,122,0.2); }
+        .rf-warn { background:var(--c-warn-bg); border-color:rgba(255,170,0,0.2); }
+        .rf-bad  { background:var(--c-bad-bg); border-color:rgba(255,61,90,0.2); }
+        .rf-name { font-size:0.68rem; font-weight:600; color:var(--t2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.35rem; }
+        .rf-val  { font-family:'Space Grotesk',sans-serif; font-size:1.35rem; font-weight:800; line-height:1; }
+        .rf-unit { font-size:0.65rem; color:var(--t2); margin-left:0.2rem; }
+        .rf-range { font-size:0.62rem; color:var(--t2); margin-top:0.35rem; }
+        .rf-status { font-size:0.65rem; font-weight:700; margin-top:0.2rem; }
+        .rf-ok   .rf-status { color:var(--c-ok); }
+        .rf-warn .rf-status { color:var(--c-warn); }
+        .rf-bad  .rf-status { color:var(--c-bad); }
+
+        /* ─── RISK DRIVER BARS ────────────────── */
+        .driver-list { display:flex; flex-direction:column; gap:0.9rem; }
+        .driver-item { display:flex; flex-direction:column; gap:0.3rem; }
+        .driver-top { display:flex; justify-content:space-between; align-items:baseline; gap:0.5rem; }
+        .driver-name { font-size:0.8rem; font-weight:600; }
+        .driver-impact { font-size:0.72rem; font-weight:700; padding:0.15rem 0.5rem; border-radius:4px; flex-shrink:0; }
+        .driver-impact.up   { background:rgba(255,61,90,0.15); color:var(--red); }
+        .driver-impact.down { background:rgba(0,200,122,0.12); color:var(--green); }
+        .driver-explain { font-size:0.72rem; color:var(--t2); line-height:1.45; }
+        .driver-bar-row { display:flex; align-items:center; gap:0.5rem; margin-top:0.1rem; }
+        .driver-bar-track { flex:1; height:6px; background:var(--input-bg); border-radius:99px; overflow:hidden; display:flex; }
+        .dbf-protect { height:100%; border-radius:99px; transition:width 0.7s ease; background:linear-gradient(90deg,var(--green),#00ef96); margin-left:auto; }
+        .dbf-risk    { height:100%; border-radius:99px; transition:width 0.7s ease; background:linear-gradient(90deg,#ff3d5a,#ff6b85); }
+        .driver-midline { width:1px; height:8px; background:var(--border2); flex-shrink:0; }
+
+        /* ─── SURVIVAL CHART ──────────────────── */
+        .chart-wrap { position:relative; height:210px; }
+
+        /* ─── PRESCRIPTION ────────────────────── */
+        .rx-list { display:flex; flex-direction:column; gap:0.7rem; }
+        .rx-card {
+            background:var(--card2); border:1px solid rgba(0,200,122,0.2);
+            border-left:3px solid var(--green); border-radius:10px; padding:0.85rem 1rem;
+        }
+        .rx-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem; }
+        .rx-feat { font-size:0.82rem; font-weight:700; }
+        .rx-delta {
+            font-size:0.75rem; font-weight:800; padding:0.18rem 0.55rem; border-radius:6px;
+        }
+        .rx-delta.down { background:rgba(0,200,122,0.15); color:var(--green); }
+        .rx-delta.up   { background:rgba(255,61,90,0.12); color:var(--red); }
+        .rx-values { font-size:0.72rem; color:var(--t2); margin-bottom:0.4rem; }
+        .rx-why { font-size:0.72rem; color:var(--t2); line-height:1.45; padding:0.45rem 0.6rem; background:rgba(0,191,255,0.05); border-radius:6px; border-left:2px solid var(--cyan); }
+
+        /* ─── METRICS TABLE ───────────────────── */
+        .mtable { width:100%; border-collapse:collapse; }
+        .mtable th { text-align:left; padding:0.5rem 0.65rem; font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--t3); border-bottom:1px solid var(--border); }
+        .mtable td { padding:0.55rem 0.65rem; font-size:0.8rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+        .mtable tr:last-child td { border-bottom:none; }
+        .mtable tr:hover td { background:rgba(255,255,255,0.02); }
+        .td-feature { font-weight:600; }
+        .td-curr { color:var(--t1); }
+        .td-ref { font-size:0.68rem; color:var(--t2); }
+        .td-target { font-weight:700; color:var(--cyan); }
+        .td-d { font-weight:700; }
+
+        /* ─── EMPTY / SPINNER ─────────────────── */
+        .empty { color:var(--t3); font-size:0.8rem; font-style:italic; text-align:center; padding:1.5rem 0.5rem; }
+        .spinner { display:inline-block; width:13px; height:13px; border:2px solid rgba(255,255,255,0.25); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; vertical-align:middle; }
+        @keyframes spin { to { transform:rotate(360deg); } }
+
+        /* ─── MODAL ───────────────────────────── */
+        .modal-ov { display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.7); -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px); }
+        .modal-ov.open { display:flex; align-items:center; justify-content:center; }
+        .modal-box { background:var(--panel); border:1px solid var(--border2); border-radius:16px; padding:1.75rem; max-width:480px; width:90%; }
+        .modal-title { font-family:'Space Grotesk',sans-serif; font-size:1.1rem; font-weight:700; margin-bottom:0.4rem; }
+        .modal-sub { font-size:0.82rem; color:var(--t2); margin-bottom:1.25rem; line-height:1.55; }
+        .modal-close { float:right; background:none; border:none; color:var(--t2); font-size:1.4rem; cursor:pointer; line-height:1; }
+        .modal-close:hover { color:var(--t1); }
+
+        /* ─── SCROLLBAR ───────────────────────── */
+        ::-webkit-scrollbar { width:4px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--border); border-radius:99px; }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <a href="/" class="tlogo">
+        <div class="tlogo-icon">❤</div>
+        <span class="tlogo-text">CardioXAI</span>
+    </a>
+    <div class="tsep"></div>
+    <span class="tpage">Patient Risk Dashboard</span>
+    <nav class="tnav">
+        <a href="/">Home</a>
+        <a href="/analysis" class="active">Dashboard</a>
+        <a href="/methodology">Methodology</a>
+        <a href="/about">About</a>
+    </nav>
+</div>
+
+<div class="app">
+
+    <!-- ── SIDEBAR ──────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sb-head">
+            <div class="sb-head-row">
+                <span class="sb-label">Patient Profile</span>
+                <button class="add-btn" onclick="document.getElementById('addModal').classList.add('open')" title="Add patient">+</button>
+            </div>
+            <select class="patient-sel" id="patientSelect" onchange="loadPatientData()"><option>Loading…</option></select>
+        </div>
+
+        <div class="sb-scroll">
+            <form id="patientForm">
+                <div class="fsec">
+                    <div class="fsec-title">Demographics</div>
+                    <div class="field"><label>Age (Years)</label><input type="number" id="AGE" min="20" max="100" title="Age in years"></div>
+                    <div class="field"><label>Biological Sex</label><select id="SEX" title="Biological sex"><option value="0">Female</option><option value="1">Male</option></select></div>
+                    <div class="field"><label>Education Level</label><select id="educ_2.0" title="Education level"><option value="0">≤ High School</option><option value="1">Some College +</option></select></div>
+                </div>
+                <div class="fsec">
+                    <div class="fsec-title">Vitals</div>
+                    <div class="field"><label>Systolic BP (mmHg)</label><input type="number" step="0.5" id="SYSBP" placeholder="e.g. 130" title="Systolic blood pressure"></div>
+                    <div class="field"><label>Diastolic BP (mmHg)</label><input type="number" step="0.5" id="DIABP" placeholder="e.g. 85" title="Diastolic blood pressure"></div>
+                    <div class="field"><label>Heart Rate (bpm)</label><input type="number" id="HEARTRTE" placeholder="e.g. 72" title="Resting heart rate"></div>
+                    <div class="field"><label>BMI (kg/m²)</label><input type="number" step="0.1" id="BMI" placeholder="e.g. 27.3" title="Body mass index"></div>
+                </div>
+                <div class="fsec">
+                    <div class="fsec-title">Labs &amp; History</div>
+                    <div class="field"><label>Total Cholesterol (mg/dL)</label><input type="number" id="TOTCHOL" placeholder="e.g. 210" title="Total cholesterol"></div>
+                    <div class="field"><label>Fasting Glucose (mg/dL)</label><input type="number" id="GLUCOSE" placeholder="e.g. 90" title="Fasting blood glucose"></div>
+                    <div class="field"><label>Current Smoker</label><select id="CURSMOKE" title="Current smoker status"><option value="0">No</option><option value="1">Yes</option></select></div>
+                    <div class="field"><label>Cigarettes / Day</label><input type="number" id="CIGPDAY" placeholder="e.g. 0" title="Cigarettes per day"></div>
+                    <div class="field"><label>On BP Medication</label><select id="BPMEDS" title="BP medication status"><option value="0">No</option><option value="1">Yes</option></select></div>
+                    <div class="field"><label>Has Diabetes</label><select id="DIABETES" title="Diabetes status"><option value="0">No</option><option value="1">Yes</option></select></div>
+                    <div class="field"><label>Prior Hypertension</label><select id="PREVHYP" title="Prior hypertension"><option value="0">No</option><option value="1">Yes</option></select></div>
+                    <div class="field"><label>Prior Stroke</label><select id="PREVSTRK" title="Prior stroke"><option value="0">No</option><option value="1">Yes</option></select></div>
+                </div>
+                <input type="hidden" id="PREVCHD" value="0">
+                <input type="hidden" id="PREVAP"  value="0">
+                <input type="hidden" id="PREVMI"  value="0">
+                <input type="hidden" id="educ_1.0" value="0">
+                <input type="hidden" id="educ_3.0" value="0">
+                <input type="hidden" id="educ_4.0" value="0">
+            </form>
+        </div>
+
+        <div class="sb-actions">
+            <button class="btn-calc" id="calcBtn" onclick="predictRisk()">🔍 Calculate Risk</button>
+            <button class="btn-opt"  id="optBtn"  onclick="runOptimizer()">💊 Generate Treatment Plan</button>
+        </div>
+    </aside>
+
+    <!-- ── MAIN ──────────────────────────────────── -->
+    <main class="main">
+
+        <!-- Patient header bar -->
+        <div class="patient-header" id="patientHeader">
+            <div class="ph-avatar" id="phAvatar">👤</div>
+            <div class="ph-info">
+                <div class="ph-name" id="phName">No Patient Loaded</div>
+                <div class="ph-meta" id="phMeta">Select a patient profile to begin analysis</div>
+            </div>
+            <div class="ph-vitals" id="phVitals" style="display:none">
+                <div class="ph-vital"><div class="ph-vital-val" id="phAge">--</div><div class="ph-vital-lbl">Age (yrs)</div></div>
+                <div class="ph-vital"><div class="ph-vital-val" id="phSex">--</div><div class="ph-vital-lbl">Sex</div></div>
+                <div class="ph-vital"><div class="ph-vital-val" id="phBP">--</div><div class="ph-vital-lbl">BP (mmHg)</div></div>
+                <div class="ph-vital"><div class="ph-vital-val" id="phChol">--</div><div class="ph-vital-lbl">Cholesterol</div></div>
+                <div class="ph-vital"><div class="ph-vital-val" id="phBMI">--</div><div class="ph-vital-lbl">BMI</div></div>
+            </div>
+            <div class="ph-risk-pill" id="phRiskPill" style="display:none; background:rgba(45,127,255,0.1); border-color:rgba(45,127,255,0.3); color:var(--cyan)">
+                <div class="dot" style="background:var(--cyan)"></div>
+                <span id="phRiskPillText">Awaiting Analysis</span>
+            </div>
+        </div>
+
+        <div class="scroll-content">
+
+            <!-- Clinical Impression -->
+            <div class="impression-box" id="impressionBox">
+                <div class="ib-title">🩺 AI Clinical Impression</div>
+                <div class="ib-text ib-empty" id="impressionText">Load a patient and click <strong>Calculate Risk</strong> to generate an AI-driven clinical summary in plain English.</div>
+            </div>
+
+            <!-- Row 1: Gauge + Risk Factors + Ensemble -->
+            <div class="grid-3">
+                <!-- Gauge -->
+                <div class="gauge-card">
+                    <div class="gauge-wrap">
+                        <svg viewBox="0 0 130 130">
+                            <circle cx="65" cy="65" r="52" fill="none" stroke="#16263d" stroke-width="10"/>
+                            <circle id="riskCircle" cx="65" cy="65" r="52" fill="none"
+                                stroke="#00c87a" stroke-width="10" stroke-dasharray="327" stroke-dashoffset="327"
+                                stroke-linecap="round"
+                                style="transform:rotate(-90deg);transform-origin:65px 65px;transition:stroke-dashoffset 1s ease,stroke 0.5s;"/>
+                        </svg>
+                        <div class="gauge-center">
+                            <span id="riskPct" style="color:#00c87a">--%</span>
+                            <span class="gauge-sublbl">10-Year CHD Risk</span>
+                        </div>
+                    </div>
+                    <div class="gauge-tier" id="gaugeTier" style="color:var(--t2)">Awaiting Analysis</div>
+                    <div class="gauge-interp" id="gaugeInterp">The estimated probability this patient will experience a coronary heart disease event within 10 years.</div>
+                </div>
+
+                <!-- Risk Factor Grid -->
+                <div class="card" style="grid-column:span 2">
+                    <div class="card-head">
+                        <div class="card-title">⚠️ Clinical Risk Factor Profile</div>
+                        <div class="card-sub">Each metric is evaluated against established clinical reference ranges. Red = high risk, Amber = borderline, Green = within normal range.</div>
+                    </div>
+                    <div class="rf-grid" id="rfGrid">
+                        <div class="empty" style="grid-column:1/-1">Calculate risk to populate the clinical profile.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Survival Chart + Ensemble Models -->
+            <div class="grid-2">
+                <!-- Survival Chart -->
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-title">📈 10-Year Survival Probability Curve</div>
+                        <div class="card-sub">Probability of remaining free of any CHD event over time. <span style="color:#ff3d5a">Red (dashed)</span> = current risk trajectory. <span style="color:#00c87a">Green</span> = projected trajectory after recommended interventions.</div>
+                    </div>
+                    <div class="chart-wrap"><canvas id="survivalChart"></canvas></div>
+                </div>
+
+                <!-- Ensemble Model Votes -->
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-title">🤖 AI Model Consensus</div>
+                        <div class="card-sub">Four independent AI models each estimate CHD event probability. When ≥2 models flag risk &gt;15%, elevated risk is confirmed.</div>
+                    </div>
+                    <div class="ensemble-row" id="ensembleRow">
+                        <div class="empty">Awaiting risk calculation…</div>
+                    </div>
+                    <div id="consensusText" style="display:none; margin-top:1rem; padding:0.65rem 0.75rem; border-radius:8px; font-size:0.78rem; line-height:1.5;"></div>
+                </div>
+            </div>
+
+            <!-- Row 3: Risk Drivers + Prescription -->
+            <div class="grid-2">
+                <!-- Risk Drivers — Plain English -->
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-title">🔬 Why Is This Patient at Risk?</div>
+                        <div class="card-sub">Factors driving this patient's individual CHD risk score, ranked by clinical impact. Each explanation is specific to this patient's values.</div>
+                    </div>
+                    <div class="driver-list" id="driverList">
+                        <div class="empty">Awaiting risk calculation…</div>
+                    </div>
+                </div>
+
+                <!-- Treatment Plan -->
+                <div class="card">
+                    <div class="card-head">
+                        <div class="card-title">💊 Physician Treatment Plan</div>
+                        <div class="card-sub">AI-recommended clinical targets with rationale. Each intervention is feasibility-constrained to physiologically achievable values.</div>
+                    </div>
+                    <div class="rx-list" id="rxList">
+                        <div class="empty">Click <strong style="color:var(--t1)">Generate Treatment Plan</strong> to compute AI-recommended interventions.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 4: Metrics Comparison Table -->
+            <div class="card">
+                <div class="card-head">
+                    <div class="card-title">📋 Before vs. After: Clinical Metrics Comparison</div>
+                    <div class="card-sub">Side-by-side comparison of current patient values versus AI-recommended targets. Reference ranges show clinical context for each measurement.</div>
+                </div>
+                <div style="overflow-x:auto">
+                    <table class="mtable" id="metricsTable">
+                        <thead><tr><th>Clinical Metric</th><th>Current Value</th><th>Normal Range</th><th>AI Target</th><th>Change</th><th>Priority</th></tr></thead>
+                        <tbody id="metricsBody">
+                            <tr><td colspan="6" class="empty">Run the Treatment Plan generator to see the full comparison.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /scroll-content -->
+    </main>
+</div>
+
+<!-- Add Patient Modal -->
+<div class="modal-ov" id="addModal">
+    <div class="modal-box">
+        <button class="modal-close" onclick="document.getElementById('addModal').classList.remove('open')">&times;</button>
+        <div class="modal-title">Save Patient Profile</div>
+        <div class="modal-sub">The current form values will be saved as a custom patient record to <code>data/custom_patients.csv</code> and will appear in the patient selector above.</div>
+        <button onclick="saveCustomPatient()" class="btn-calc" style="display:flex">💾 Save Current Profile</button>
+    </div>
+</div>
+
+<script>
+// ── Constants & Setup ──────────────────────────────────────────────────────
+const API = "/api";
+let survChart = null;
+let currentData = {};
+let base_times = [], base_probs = [];
+
+// Clinical reference ranges (min-warn-bad, max-warn-bad, unit, name, clinical explanation for risk)
+const REFS = {
+    SYSBP:   { name:'Systolic BP',       unit:'mmHg',    ok:[0,120],    warn:[120,130],  bad:[130,999],  dir:'high',
+                explain: v => v>=140 ? `Severely elevated (${v} mmHg). Hypertension Stage 2 significantly increases cardiac workload and arterial wall stress.` : v>=130 ? `Mildly elevated (${v} mmHg). Stage 1 hypertension increases CHD risk. Target &lt;130 mmHg with lifestyle/medication.` : `Borderline elevated (${v} mmHg). Lifestyle modification recommended.` },
+    DIABP:   { name:'Diastolic BP',      unit:'mmHg',    ok:[0,80],     warn:[80,90],    bad:[90,999],   dir:'high',
+                explain: v => v>=90 ? `Elevated diastolic (${v} mmHg) indicates Stage 2 hypertension. Increases myocardial oxygen demand.` : `Borderline elevated (${v} mmHg). Monitor and consider lifestyle intervention.` },
+    TOTCHOL: { name:'Total Cholesterol', unit:'mg/dL',   ok:[0,200],    warn:[200,240],  bad:[240,999],  dir:'high',
+                explain: v => v>=240 ? `High cholesterol (${v} mg/dL) promotes atherosclerotic plaque formation in coronary arteries, directly increasing CHD risk.` : `Borderline (${v} mg/dL). Diet modification (reduce saturated fats) and statin therapy may be indicated.` },
+    BMI:     { name:'BMI',               unit:'kg/m²',   ok:[18.5,25],  warn:[25,30],    bad:[30,99],    dir:'high',
+                explain: v => v>=30 ? `Obese BMI (${v}). Obesity is independently associated with hypertension, dyslipidemia, insulin resistance, and elevated CHD risk.` : `Overweight BMI (${v}). 5–10% weight reduction significantly reduces cardiovascular risk factors.` },
+    GLUCOSE: { name:'Fasting Glucose',   unit:'mg/dL',   ok:[70,100],   warn:[100,126],  bad:[126,999],  dir:'high',
+                explain: v => v>=126 ? `Diabetic range (${v} mg/dL). Chronic hyperglycemia damages vascular endothelium, accelerating coronary artery disease.` : `Prediabetic range (${v} mg/dL). Lifestyle intervention can prevent progression to Type 2 diabetes and reduce CHD risk.` },
+    HEARTRTE: { name:'Heart Rate',       unit:'bpm',     ok:[60,100],   warn:[100,110],  bad:[110,999],  dir:'high',
+                explain: v => `Resting heart rate of ${v} bpm. Elevated resting HR is associated with increased myocardial oxygen consumption and adverse cardiovascular outcomes.` },
+    CIGPDAY: { name:'Cigarettes/Day',    unit:'/day',    ok:[0,0.1],    warn:[0.1,10],   bad:[10,999],   dir:'high',
+                explain: v => `Smoking ${v} cigarettes/day. Smoking is a major modifiable CHD risk factor — it damages endothelium, promotes clotting, and reduces HDL cholesterol. Cessation is the single most impactful intervention.` },
+    AGE:     { name:'Age',               unit:'yrs',     ok:[0,44],     warn:[45,60],    bad:[60,999],   dir:'high',
+                explain: v => `Age ${v}. Cardiovascular risk increases with age as arteries stiffen and cumulative risk factor exposure grows.` }
+};
+
+// Mapping from feature codes to clinical explanations for protective factors
+const PROTECT_EXPLAIN = {
+    SYSBP: v => `Systolic BP of ${v} mmHg is well controlled. Continue current management.`,
+    TOTCHOL: v => `Cholesterol of ${v} mg/dL is within desirable range. Maintain diet and activity levels.`,
+    BMI: v => `BMI of ${v} is healthy. Maintain current weight with regular physical activity.`,
+    GLUCOSE: v => `Fasting glucose of ${v} mg/dL is normal. No glycaemic intervention needed.`,
+    HEARTRTE: v => `Resting heart rate of ${v} bpm is normal. Reflects good cardiovascular conditioning.`,
+    CIGPDAY: v => v < 1 ? `Non-smoker status is strongly protective against CHD. Maintain.` : ``,
+    AGE: v => ``,
+};
+
+const FEATURE_DISPLAY_NAMES = {
+    SYSBP:'Systolic Blood Pressure', DIABP:'Diastolic Blood Pressure', TOTCHOL:'Total Cholesterol',
+    BMI:'BMI', GLUCOSE:'Fasting Glucose', HEARTRTE:'Heart Rate', CIGPDAY:'Cigarettes/Day',
+    CURSMOKE:'Smoking Status', DIABETES:'Diabetes', BPMEDS:'BP Medication',
+    AGE:'Age', SEX:'Sex', PREVCHD:'Prior CHD', PREVAP:'Prior Angina',
+    PREVMI:'Prior MI', PREVSTRK:'Prior Stroke', PREVHYP:'Hypertension',
+    'educ_1.0':'Education', 'educ_2.0':'Education', 'educ_3.0':'Education', 'educ_4.0':'Education'
+};
+
+const CLINICAL_UNITS = { SYSBP:'mmHg', DIABP:'mmHg', TOTCHOL:'mg/dL', BMI:'kg/m²', GLUCOSE:'mg/dL', HEARTRTE:'bpm', AGE:'yrs', CIGPDAY:'/day' };
+const NORMAL_RANGES  = { SYSBP:'< 120 mmHg', DIABP:'< 80 mmHg', TOTCHOL:'< 200 mg/dL', BMI:'18.5–24.9 kg/m²', GLUCOSE:'70–99 mg/dL', HEARTRTE:'60–100 bpm', AGE:'N/A', CIGPDAY:'0' };
+
+// Intervention rationale library
+const RX_WHY = {
+    SYSBP:   `Reducing systolic BP by this amount is estimated to reduce CHD risk by ~10–15%. Consider RAAS inhibitors (ACE inhibitors/ARBs), calcium channel blockers, or thiazide diuretics alongside dietary sodium restriction (<2g/day) and aerobic exercise.`,
+    DIABP:   `Lowering diastolic BP reduces myocardial oxygen demand and risk of left ventricular hypertrophy. Review antihypertensive regimen.`,
+    TOTCHOL: `Each 1 mmol/L (~39 mg/dL) reduction in LDL reduces major vascular events by ~20–25%. Initiate or intensify statin therapy. Advise Mediterranean or low-saturated-fat diet.`,
+    BMI:     `A 5–10% reduction in body weight significantly improves BP, lipid profile, and insulin sensitivity. Recommend structured weight management program (dietary + aerobic exercise).`,
+    GLUCOSE: `Optimizing glycaemic control reduces microvascular and macrovascular cardiovascular complications. Review HbA1c; consider metformin or GLP-1 agonist if indicated.`,
+    HEARTRTE:`Elevated resting HR increases myocardial oxygen consumption. Consider beta-blocker if clinically appropriate. Recommend aerobic conditioning (150 min/week moderate intensity).`,
+    CIGPDAY: `Smoking cessation is the single most impactful modifiable CHD risk reduction intervention. At 1 year post-cessation, CHD risk decreases by ~50%. Prescribe NRT, varenicline, or bupropion. Refer to cessation program.`,
+    CURSMOKE:`Smoking cessation will reduce CHD risk dramatically within 1–5 years. First-line: prescribe varenicline (Champix) + behavioural counselling.`,
+    BPMEDS:  `Initiating antihypertensive medication is indicated given elevated BP readings. Review NICE/JNC guidelines for first-line agent selection.`,
+    DIABETES:`Optimal diabetes management reduces cardiovascular risk. Target HbA1c, BP, and lipid control simultaneously (ABC approach).`,
+    PREVHYP: `Prior hypertension history requires sustained BP management. Ensure adherence to antihypertensive regimen.`,
+};
+
+const FEATURES = ['SYSBP','DIABP','TOTCHOL','BMI','GLUCOSE','HEARTRTE','CIGPDAY','CURSMOKE','DIABETES','BPMEDS','AGE','SEX','PREVCHD','PREVAP','PREVMI','PREVSTRK','PREVHYP','educ_1.0','educ_2.0','educ_3.0','educ_4.0'];
+
+// ── Chart Setup ─────────────────────────────────────────────────────────────
+const ctx = document.getElementById('survivalChart').getContext('2d');
+survChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: [], datasets: [] },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            y: { min:0, max:1,
+                grid: { color:'rgba(22,38,61,0.9)' },
+                ticks: { color:'#6888aa', font:{size:11}, callback: v=>(v*100).toFixed(0)+'%' },
+                title: { display:true, text:'Probability of Remaining Event-Free', color:'#6888aa', font:{size:11} }
+            },
+            x: { grid: { color:'rgba(22,38,61,0.9)' }, ticks: { color:'#6888aa', font:{size:11} },
+                 title: { display:true, text:'Years of Follow-up', color:'#6888aa', font:{size:11} } }
+        },
+        elements: { point:{radius:5,hoverRadius:8}, line:{borderWidth:2.5,tension:0.35} },
+        plugins: {
+            legend: { labels:{ color:'#8899bb', usePointStyle:true, boxWidth:8, font:{size:11} } },
+            tooltip: {
+                callbacks: {
+                    label: ctx => {
+                        const v = ctx.parsed.y;
+                        return ` ${ctx.dataset.label}: ${(v*100).toFixed(1)}% chance of no CHD event`;
+                    }
+                }
+            }
+        }
+    }
+});
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function getRFStatus(feat, val) {
+    const r = REFS[feat]; if (!r) return 'neutral';
+    if (r.dir === 'high') {
+        if (val < r.warn[0]) return 'ok';
+        if (val < r.bad[0])  return 'warn';
+        return 'bad';
+    }
+    return 'neutral';
+}
+
+function setGauge(pct) {
+    const c = document.getElementById('riskCircle');
+    const t = document.getElementById('riskPct');
+    if (pct <= 0) { c.style.strokeDashoffset = 327; t.textContent = '--%'; t.style.color='#00c87a'; c.style.stroke='#00c87a'; return; }
+    c.style.strokeDashoffset = 327 - (Math.min(pct,100)/100)*327;
+    const color = pct<10 ? '#00c87a' : pct<20 ? '#ffaa00' : '#ff3d5a';
+    c.style.stroke = color;
+    t.textContent = pct.toFixed(1)+'%';
+    t.style.color = color;
+}
+
+function closestYear(times, probs, target) {
+    let best=0, bestD=Infinity;
+    for (let i=0;i<times.length;i++) { const d=Math.abs(times[i]-target); if(d<bestD){bestD=d;best=probs[i];} }
+    return best;
+}
+
+function extractYears(times, probs) {
+    const targets=[1,3,5,10];
+    return { times:targets, probs:targets.map(y=>closestYear(times,probs,y)) };
+}
+
+function updatePatientHeader(data) {
+    const sex = parseInt(data.SEX)===1 ? 'Male' : 'Female';
+    const age = Math.round(data.AGE);
+    document.getElementById('phAvatar').textContent = parseInt(data.SEX)===1 ? '👨' : '👩';
+    document.getElementById('phName').textContent = document.getElementById('patientSelect').options[document.getElementById('patientSelect').selectedIndex].text;
+    document.getElementById('phMeta').textContent = `${age} years old · ${sex}`;
+    document.getElementById('phAge').textContent  = age;
+    document.getElementById('phSex').textContent  = sex;
+    document.getElementById('phBP').textContent   = `${Math.round(data.SYSBP)}/${Math.round(data.DIABP)}`;
+    document.getElementById('phChol').textContent = Math.round(data.TOTCHOL);
+    document.getElementById('phBMI').textContent  = data.BMI.toFixed(1);
+    document.getElementById('phVitals').style.display = 'flex';
+    document.getElementById('phRiskPill').style.display = 'flex';
+}
+
+function buildRFGrid(data) {
+    const rfFeats = ['SYSBP','DIABP','TOTCHOL','BMI','GLUCOSE','HEARTRTE','CIGPDAY'];
+    const grid = document.getElementById('rfGrid');
+    grid.innerHTML = '';
+    rfFeats.forEach(feat => {
+        const ref = REFS[feat]; if (!ref) return;
+        const val = data[feat];
+        const status = getRFStatus(feat, val);
+        const statusLabels = { ok:'✓ Normal', warn:'⚠ Borderline', bad:'✕ Elevated' };
+        grid.innerHTML += `
+        <div class="rf-tile rf-${status}" title="${ref.name}: ${val.toFixed(1)} ${ref.unit}">
+            <div class="rf-name">${ref.name}</div>
+            <div><span class="rf-val">${val.toFixed(1)}</span><span class="rf-unit">${ref.unit}</span></div>
+            <div class="rf-range">${NORMAL_RANGES[feat] || ''}</div>
+            <div class="rf-status">${statusLabels[status] || ''}</div>
+        </div>`;
+    });
+    // Binary flags
+    if (parseInt(data.CURSMOKE)===1) { grid.innerHTML += `<div class="rf-tile rf-bad"><div class="rf-name">Smoking</div><div class="rf-val">Active</div><div class="rf-range">Target: None</div><div class="rf-status">✕ Major Risk</div></div>`; }
+    else { grid.innerHTML += `<div class="rf-tile rf-ok"><div class="rf-name">Smoking</div><div class="rf-val">None</div><div class="rf-range">Target: None</div><div class="rf-status">✓ Non-Smoker</div></div>`; }
+    if (parseInt(data.DIABETES)===1) { grid.innerHTML += `<div class="rf-tile rf-bad"><div class="rf-name">Diabetes</div><div class="rf-val">Yes</div><div class="rf-range">Target: Controlled</div><div class="rf-status">✕ Present</div></div>`; }
+    if (parseInt(data.PREVHYP)===1)  { grid.innerHTML += `<div class="rf-tile rf-warn"><div class="rf-name">Hypertension Hx</div><div class="rf-val">Yes</div><div class="rf-range">Monitor</div><div class="rf-status">⚠ History</div></div>`; }
+    if (parseInt(data.PREVSTRK)===1) { grid.innerHTML += `<div class="rf-tile rf-bad"><div class="rf-name">Prior Stroke</div><div class="rf-val">Yes</div><div class="rf-range">High risk</div><div class="rf-status">✕ History</div></div>`; }
+}
+
+function buildImpressionText(data, riskPct, xai) {
+    // Identify top risk factors by absolute contribution
+    const riskFactors = [], protectFactors = [];
+    Object.entries(xai).slice(0,12).forEach(([f,v]) => {
+        if (v > 0.01) riskFactors.push({ feat:f, val:v });
+        else if (v < -0.01) protectFactors.push({ feat:f, val:v });
+    });
+
+    const sex    = parseInt(data.SEX)===1 ? 'male' : 'female';
+    const age    = Math.round(data.AGE);
+    const riskTier= riskPct<10 ? 'LOW' : riskPct<20 ? 'MODERATE' : 'HIGH';
+    const smokeTxt= parseInt(data.CURSMOKE)===1 ? ` as an <strong>active smoker (${Math.round(data.CIGPDAY)} cigarettes/day)</strong>` : '';
+    const diabetesTxt = parseInt(data.DIABETES)===1 ? ` with <strong>Type 2 Diabetes</strong>` : '';
+
+    let rf1 = riskFactors.length>0 ? (FEATURE_DISPLAY_NAMES[riskFactors[0].feat]||riskFactors[0].feat) : 'elevated cardiovascular markers';
+    let rf2 = riskFactors.length>1 ? (FEATURE_DISPLAY_NAMES[riskFactors[1].feat]||riskFactors[1].feat) : '';
+
+    let text = `This <strong>${age}-year-old ${sex}</strong>${smokeTxt}${diabetesTxt} has a <strong>${riskTier} 10-year CHD risk of ${riskPct.toFixed(1)}%</strong>. `;
+
+    if (riskPct >= 20) {
+        text += `This places the patient in the <strong>high-risk category</strong> — immediate clinical intervention is recommended. `;
+    } else if (riskPct >= 10) {
+        text += `This represents a <strong>clinically significant risk</strong> that warrants proactive management and close follow-up. `;
+    } else {
+        text += `This is within an <strong>acceptable risk range</strong>, though monitoring and preventive care remain important. `;
+    }
+
+    text += `The primary drivers of elevated risk are <strong>${rf1}${rf2 ? ` and ${rf2}` : ''}</strong>. `;
+
+    if (riskPct >= 10) {
+        text += `Intervention is recommended: click <strong>Generate Treatment Plan</strong> to see AI-recommended targets with clinical rationale.`;
+    } else {
+        text += `Encourage healthy lifestyle maintenance and annual cardiovascular screening.`;
+    }
+
+    document.getElementById('impressionText').innerHTML = text;
+    document.getElementById('impressionText').classList.remove('ib-empty');
+    document.getElementById('impressionBox').style.borderLeftColor = riskPct<10 ? 'var(--green)' : riskPct<20 ? 'var(--amber)' : 'var(--red)';
+}
+
+function buildDriverList(xai, patientData) {
+    const entries = Object.entries(xai).slice(0,8);
+    const maxAbs  = Math.max(...entries.map(e=>Math.abs(e[1])));
+    const container = document.getElementById('driverList');
+    container.innerHTML = '';
+
+    entries.forEach(([feat, contribution]) => {
+        const isRisk = contribution > 0;
+        const pct    = Math.max((Math.abs(contribution)/maxAbs)*100, 5);
+        const name   = FEATURE_DISPLAY_NAMES[feat] || feat;
+        const val    = patientData[feat];
+        const ref    = REFS[feat];
+        const sign   = isRisk ? '▲ Increases Risk' : '▼ Protective';
+
+        // Generate explanation
+        let explain = '';
+        if (ref && isRisk && val !== undefined) explain = ref.explain(val);
+        else if (ref && !isRisk && val !== undefined && PROTECT_EXPLAIN[feat]) explain = PROTECT_EXPLAIN[feat](val);
+        else if (feat === 'CURSMOKE' && parseInt(val)===1) explain = 'Active smoker. Smoking is the most impactful modifiable CHD risk factor — cessation should be the first treatment priority.';
+        else if (feat === 'DIABETES' && parseInt(val)===1) explain = 'Diabetes mellitus significantly accelerates coronary artery disease through endothelial dysfunction and dyslipidaemia.';
+        else if (feat === 'PREVHYP' && parseInt(val)===1) explain = 'History of hypertension indicates long-term arterial stress — ensure BP is currently optimally controlled.';
+        else if (feat === 'SEX') explain = parseInt(val)===1 ? 'Male sex is associated with higher baseline CHD risk, particularly before age 65.' : 'Female sex is protective prior to menopause; risk increases significantly post-menopause.';
+        else if (!explain) explain = isRisk ? `This feature contributes positively to cardiovascular hazard in this patient.` : `This feature is protective in this patient's risk profile.`;
+
+        container.innerHTML += `
+        <div class="driver-item">
+            <div class="driver-top">
+                <span class="driver-name">${name}${val !== undefined && CLINICAL_UNITS[feat] ? ` (${typeof val==='number'?val.toFixed(1):val} ${CLINICAL_UNITS[feat]})` : (val !== undefined ? ` = ${typeof val==='number'?val.toFixed(1):val}` : '')}</span>
+                <span class="driver-impact ${isRisk?'up':'down'}">${sign}</span>
+            </div>
+            <div class="driver-bar-row">
+                <div class="driver-bar-track">
+                    <div class="dbf-protect" style="width:${!isRisk?pct:0}%"></div>
+                    <div class="dbf-risk"    style="width:${isRisk?pct:0}%"></div>
+                </div>
+            </div>
+            <div class="driver-explain">${explain}</div>
+        </div>`;
+    });
+}
+
+function buildEnsemble(result) {
+    const models = [
+        { label:'Cox (Survival Model)', prob: Math.min((1-closestYear(result.survival_times,result.survival_probs,10))*100, 100)/100, color:'#9b6dff' },
+        { label:'XGBoost Classifier',   prob: result.prob_xgb,  color:'#2d7fff' },
+        { label:'LightGBM Classifier',  prob: result.prob_lgb,  color:'#00bfff' },
+        { label:'Random Forest',        prob: result.prob_rf,   color:'#00c87a' }
+    ];
+    const threshold = 0.15;
+    const votes = models.filter(m=>m.prob>threshold).length;
+    const container = document.getElementById('ensembleRow');
+    container.innerHTML = '';
+    models.forEach(m => {
+        const flagged = m.prob > threshold;
+        container.innerHTML += `
+        <div class="ensemble-item">
+            <span class="ei-label">${m.label}</span>
+            <div class="ei-bar-track"><div class="ei-bar-fill" style="width:${(m.prob*100).toFixed(1)}%;background:${flagged?'#ff3d5a':m.color}"></div></div>
+            <span class="ei-val" style="color:${flagged?'#ff3d5a':m.color}">${(m.prob*100).toFixed(1)}%</span>
+            <span class="ei-vote ${flagged?'vote-yes':'vote-no'}">${flagged?'⚠ Flagged':'✓ Clear'}</span>
+        </div>`;
+    });
+
+    const consensusEl = document.getElementById('consensusText');
+    consensusEl.style.display = 'block';
+    if (votes >= 3) {
+        consensusEl.style.background = 'rgba(255,61,90,0.08)'; consensusEl.style.borderLeft = '3px solid #ff3d5a'; consensusEl.style.color = '#ffb0bb';
+        consensusEl.innerHTML = `<strong style="color:#ff3d5a">⚠ Strong Consensus — High Risk:</strong> ${votes}/4 models independently flag elevated CHD risk above the 15% threshold. High clinical confidence in risk assessment. Intervention warranted.`;
+    } else if (votes >= 2) {
+        consensusEl.style.background = 'rgba(255,170,0,0.08)'; consensusEl.style.borderLeft = '3px solid #ffaa00'; consensusEl.style.color = '#ffd580';
+        consensusEl.innerHTML = `<strong style="color:#ffaa00">⚠ Moderate Consensus — Elevated Risk:</strong> ${votes}/4 models flag elevated risk. Clinical discretion advised. Consider preventive intervention and monitoring.`;
+    } else {
+        consensusEl.style.background = 'rgba(0,200,122,0.08)'; consensusEl.style.borderLeft = '3px solid #00c87a'; consensusEl.style.color = '#80e8b8';
+        consensusEl.innerHTML = `<strong style="color:#00c87a">✓ Low Consensus — Low-Moderate Risk:</strong> ${votes}/4 models flag risk. Current risk is lower; focus on preventive lifestyle measures and annual review.`;
+    }
+}
+
+function buildRxList(prescription, cfNative) {
+    const list = document.getElementById('rxList');
+    list.innerHTML = '';
+    if (!prescription || prescription.length === 0) {
+        list.innerHTML = '<div class="empty">No feasible interventions found within physiological constraints for this patient.</div>';
+        return;
+    }
+    prescription.forEach((item, i) => {
+        const name  = FEATURE_DISPLAY_NAMES[item.feature] || item.feature;
+        const unit  = CLINICAL_UNITS[item.feature] || '';
+        const isDown= item.change < 0;
+        const why   = RX_WHY[item.feature] || 'Modifying this factor is estimated to reduce cardiovascular event risk based on the AI model.';
+        list.innerHTML += `
+        <div class="rx-card">
+            <div class="rx-header">
+                <span class="rx-feat">Step ${i+1}: ${name}</span>
+                <span class="rx-delta ${isDown?'down':'up'}">${isDown?'↓':'↑'} ${Math.abs(item.change).toFixed(1)} ${unit}</span>
+            </div>
+            <div class="rx-values">Current: <strong style="color:var(--t1)">${item.original.toFixed(1)} ${unit}</strong> &rarr; Target: <strong style="color:#00bfff">${item.recommended.toFixed(1)} ${unit}</strong></div>
+            <div class="rx-why">💡 <em>${why}</em></div>
+        </div>`;
+    });
+}
+
+function buildMetricsTable(prescription, currentData, cfNative) {
+    const priorityFeats = prescription.map(p=>p.feature);
+    const allFeats = ['AGE','SEX', ...priorityFeats];
+    const uniq = [...new Set(allFeats)];
+    const tbody = document.getElementById('metricsBody');
+    tbody.innerHTML = '';
+    uniq.forEach(feat => {
+        const name   = FEATURE_DISPLAY_NAMES[feat] || feat;
+        const oval   = currentData[feat];
+        const tval   = cfNative ? cfNative[feat] : null;
+        const unit   = CLINICAL_UNITS[feat] || '';
+        const norm   = NORMAL_RANGES[feat] || '—';
+        const pres   = prescription.find(p=>p.feature===feat);
+        const status = REFS[feat] ? getRFStatus(feat, oval) : 'neutral';
+        const statusDot = status==='ok'?'🟢':status==='warn'?'🟡':status==='bad'?'🔴':'⚪';
+        let deltaHtml = '<span style="color:var(--t3)">—</span>';
+        let priority  = '—';
+        if (pres) {
+            const cls = pres.change<0 ? 'color:#00c87a' : 'color:#ff3d5a';
+            deltaHtml = `<span style="${cls};font-weight:700">${pres.change>0?'+':''}${pres.change.toFixed(1)} ${unit}</span>`;
+            const absDelta = Math.abs(pres.change);
+            if (feat==='CIGPDAY'||feat==='CURSMOKE') priority = `<span style="color:#ff3d5a;font-weight:700">🔴 High — Quit Smoking</span>`;
+            else if (absDelta>20) priority = `<span style="color:#ff3d5a;font-weight:700">🔴 High Priority</span>`;
+            else if (absDelta>8)  priority = `<span style="color:#ffaa00;font-weight:700">🟡 Medium Priority</span>`;
+            else priority = `<span style="color:#00c87a">🟢 Low Priority</span>`;
+        }
+        tbody.innerHTML += `
+        <tr>
+            <td class="td-feature">${statusDot} ${name}</td>
+            <td class="td-curr">${typeof oval==='number'?oval.toFixed(1):oval} ${unit}</td>
+            <td class="td-ref" style="color:var(--t2)">${norm}</td>
+            <td class="td-target">${tval!==null?(typeof tval==='number'?tval.toFixed(1):tval)+' '+unit:'—'}</td>
+            <td class="td-d">${deltaHtml}</td>
+            <td>${priority}</td>
+        </tr>`;
+    });
+}
+
+// ── API Calls ───────────────────────────────────────────────────────────────
+async function fetchPatientList() {
+    try {
+        const r = await fetch(`${API}/patients`);
+        const d = await r.json();
+        const sel = document.getElementById('patientSelect');
+        sel.innerHTML = '';
+        d.base.forEach((p,i)=>sel.add(new Option(p,`base|${i}`)));
+        d.custom.forEach((p,i)=>sel.add(new Option(p,`custom|${i}`)));
+        if (d.base.length>0) loadPatientData();
+    } catch(e) { console.error(e); }
+}
+
+async function loadPatientData() {
+    const val = document.getElementById('patientSelect').value;
+    if (!val) return;
+    const [type, idx] = val.split('|');
+    try {
+        const r = await fetch(`${API}/patient/${type}/${idx}`);
+        const d = await r.json();
+        FEATURES.forEach(f => {
+            const el = document.getElementById(f);
+            if (el && d[f]!==undefined) {
+                if (el.tagName==='SELECT') el.value=parseInt(d[f]);
+                else el.value=typeof d[f]==='number'?d[f].toFixed(1):d[f];
+            }
+        });
+        updatePatientHeader(d);
+        resetDashboard();
+    } catch(e) { console.error(e); }
+}
+
+function resetDashboard() {
+    document.getElementById('calcBtn').style.display = 'flex'; document.getElementById('calcBtn').disabled=false; document.getElementById('calcBtn').innerHTML='🔍 Calculate Risk';
+    document.getElementById('optBtn').style.display = 'none';
+    document.getElementById('rxList').innerHTML = '<div class="empty">Click <strong style="color:var(--t1)">Generate Treatment Plan</strong> after risk calculation.</div>';
+    document.getElementById('metricsBody').innerHTML = '<tr><td colspan="6" class="empty">Run treatment plan to see comparison.</td></tr>';
+    document.getElementById('driverList').innerHTML = '<div class="empty">Awaiting risk calculation…</div>';
+    document.getElementById('ensembleRow').innerHTML = '<div class="empty">Awaiting risk calculation…</div>';
+    document.getElementById('consensusText').style.display='none';
+    document.getElementById('rfGrid').innerHTML = '<div class="empty" style="grid-column:1/-1">Calculate risk to populate the clinical profile.</div>';
+    document.getElementById('impressionText').innerHTML = 'Load a patient and click <strong>Calculate Risk</strong> to generate an AI-driven clinical summary in plain English.';
+    document.getElementById('impressionText').classList.add('ib-empty');
+    document.getElementById('impressionBox').style.borderLeftColor = 'var(--blue)';
+    document.getElementById('phRiskPill').style.display='none';
+    setGauge(0);
+    document.getElementById('gaugeTier').textContent='Awaiting Analysis'; document.getElementById('gaugeTier').style.color='var(--t2)';
+    document.getElementById('gaugeInterp').textContent='The estimated probability this patient will experience a coronary heart disease event within 10 years.';
+    base_times=[]; base_probs=[]; survChart.data={labels:[],datasets:[]}; survChart.update();
+}
+
+function getFormData() {
+    const d={};
+    FEATURES.forEach(f=>{const el=document.getElementById(f);if(el) d[f]=parseFloat(el.value)||0.0;});
+    return d;
+}
+
+async function predictRisk() {
+    currentData = getFormData();
+    const btn = document.getElementById('calcBtn');
+    btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Calculating…';
+    try {
+        const r = await fetch(`${API}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patient_data:currentData})});
+        const result = await r.json();
+
+        btn.style.display='none';
+        const optBtn = document.getElementById('optBtn');
+        optBtn.style.display='flex';
+
+        // Survival chart
+        const td = extractYears(result.survival_times, result.survival_probs);
+        base_times=td.times; base_probs=td.probs;
+        survChart.data={
+            labels:base_times.map(y=>`Year ${y}`),
+            datasets:[{label:'Current Risk Trajectory',data:base_probs,borderColor:'#ff3d5a',backgroundColor:'rgba(255,61,90,0.07)',fill:true,borderDash:[0,0]}]
+        };
+        survChart.update();
+
+        const riskPct=(1-base_probs[base_probs.length-1])*100;
+        setGauge(riskPct);
+
+        // Gauge labels
+        const tierLabel = riskPct<10?'🟢 LOW RISK':riskPct<20?'🟡 MODERATE RISK':'🔴 HIGH RISK';
+        const tierColor = riskPct<10?'var(--green)':riskPct<20?'var(--amber)':'var(--red)';
+        document.getElementById('gaugeTier').textContent=tierLabel; document.getElementById('gaugeTier').style.color=tierColor;
+        document.getElementById('gaugeInterp').textContent = riskPct<10 ? 'This patient has a low probability of a CHD event in the next 10 years. Preventive care recommended.' : riskPct<20 ? 'Moderate risk. Active lifestyle and clinical intervention recommended to prevent progression.' : 'High risk. Immediate clinical intervention and close monitoring is strongly recommended.';
+
+        // Header pill
+        const pill = document.getElementById('phRiskPill');
+        pill.style.display='flex';
+        pill.style.background=riskPct<10?'rgba(0,200,122,0.1)':riskPct<20?'rgba(255,170,0,0.1)':'rgba(255,61,90,0.1)';
+        pill.style.borderColor=riskPct<10?'rgba(0,200,122,0.3)':riskPct<20?'rgba(255,170,0,0.3)':'rgba(255,61,90,0.3)';
+        pill.style.color=riskPct<10?'var(--green)':riskPct<20?'var(--amber)':'var(--red)';
+        document.getElementById('phRiskPillText').textContent=`${riskPct.toFixed(1)}% 10-Year CHD Risk`;
+        pill.querySelector('.dot').style.background=riskPct<10?'var(--green)':riskPct<20?'var(--amber)':'var(--red)';
+
+        buildRFGrid(currentData);
+        buildEnsemble(result);
+        buildDriverList(result.xai_contributions, currentData);
+        buildImpressionText(currentData, riskPct, result.xai_contributions);
+
+    } catch(e) {
+        btn.disabled=false; btn.innerHTML='🔍 Calculate Risk';
+        alert('Error connecting to API. Make sure the server is running at localhost:8000.');
+    }
+}
+
+async function runOptimizer() {
+    const btn = document.getElementById('optBtn');
+    btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Optimizing…';
+    try {
+        const r = await fetch(`${API}/optimize`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patient_data:currentData})});
+        const result = await r.json();
+        btn.disabled=false; btn.innerHTML='💊 Generate Treatment Plan';
+
+        // Update survival chart with counterfactual
+        const td=extractYears(result.survival_times, result.survival_probs);
+        survChart.data.datasets=[
+            {label:'Current Trajectory (Baseline)',data:base_probs,borderColor:'#ff3d5a',borderDash:[6,4],backgroundColor:'transparent'},
+            {label:'After Interventions (Optimized)',data:td.probs,borderColor:'#00c87a',backgroundColor:'rgba(0,200,122,0.08)',fill:true}
+        ];
+        survChart.update();
+
+        // Update gauge to show counterfactual risk
+        const cfRisk=(1-td.probs[td.probs.length-1])*100;
+        setGauge(cfRisk);
+
+        // Update clinical impression with recourse info
+        if (result.status!=='none' && result.relative_risk_reduction) {
+            const rrr=(result.relative_risk_reduction*100).toFixed(1);
+            document.getElementById('impressionText').innerHTML += ` <br><br><strong style="color:var(--green)">✅ Intervention Result:</strong> Following the AI-recommended treatment plan is projected to reduce relative cardiovascular risk by <strong style="color:var(--green)">${rrr}%</strong>. The survival curve (green) shows the improved event-free trajectory after interventions.`;
+        }
+
+        buildRxList(result.prescription, result.cf_native);
+        buildMetricsTable(result.prescription, currentData, result.cf_native);
+
+    } catch(e) {
+        btn.disabled=false; btn.innerHTML='💊 Generate Treatment Plan';
+        alert('Optimizer error. Check server logs.');
+    }
+}
+
+async function saveCustomPatient() {
+    const d=getFormData();
+    try {
+        await fetch(`${API}/patient`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patient_data:d})});
+        document.getElementById('addModal').classList.remove('open');
+        await fetchPatientList();
+        alert('Patient saved!');
+    } catch(e) { alert('Error saving patient.'); }
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+fetchPatientList();
+</script>
+</body>
+</html>

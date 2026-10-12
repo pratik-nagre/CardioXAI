@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XAI Cardiovascular Risk Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .glass-panel {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+        }
+        
+        .sidebar { width: 320px; background-color: #1e293b; border-right: 1px solid #334155; overflow-y: auto; }
+        .sidebar-section-title { font-size: 0.75rem; font-weight: bold; color: #60a5fa; text-transform: uppercase; margin: 1.5rem 1rem 0.5rem 1rem; border-bottom: 1px solid #334155; padding-bottom: 0.25rem;}
+        
+        .input-group { padding: 0 1rem; margin-bottom: 0.75rem; }
+        .input-group label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 0.25rem; }
+        .input-group input, .input-group select { 
+            width: 100%; background: #0f172a; border: 1px solid #334155; 
+            color: white; padding: 0.5rem; border-radius: 0.25rem; font-size: 0.85rem;
+        }
+        
+        .btn-primary { 
+            background-color: #3b82f6; color: white; padding: 0.75rem 1rem; border-radius: 0.25rem; 
+            font-weight: bold; cursor: pointer; text-align: center; width: calc(100% - 2rem); margin: 1rem;
+        }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-secondary { background-color: #475569; color: white; padding: 0.5rem 1rem; border-radius: 0.25rem; font-size: 0.85rem;}
+        .btn-secondary:hover { background-color: #334155; }
+        
+        /* Circular Progress */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.35s;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        
+        .table-metrics th { text-align: left; padding: 0.75rem 1rem; color: #94a3b8; font-weight: normal; font-size: 0.85rem; border-bottom: 1px solid #334155; }
+        .table-metrics td { padding: 0.75rem 1rem; font-size: 0.85rem; border-bottom: 1px solid #334155; }
+        
+        .terminal { background-color: #000; color: #0f0; font-family: monospace; padding: 1rem; height: 300px; overflow-y: auto; border: 1px solid #333; border-radius: 0.25rem; font-size: 0.8rem; }
+        
+        .modal { display: none; position: fixed; z-index: 50; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background-color: #1e293b; margin: 2% auto; padding: 2rem; border: 1px solid #334155; width: 90%; max-width: 1200px; border-radius: 0.5rem; height: 90vh; overflow-y: auto;}
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar: Patient Parameters -->
+    <div class="sidebar shrink-0 z-10 flex flex-col pb-6">
+        <div class="p-4 border-b border-slate-700 bg-slate-900 flex justify-between items-center">
+            <h2 class="text-lg font-bold text-white">Patient Parameters</h2>
+            <button onclick="document.getElementById('addPatientModal').style.display='block'" class="text-slate-400 hover:text-white" title="Add Patient">+</button>
+        </div>
+        
+        <div class="px-4 py-3 border-b border-slate-700">
+            <label class="text-xs text-slate-400 block mb-1">Load Profile</label>
+            <select id="patientSelect" class="w-full bg-slate-900 border border-slate-700 text-white p-1 rounded text-sm" onchange="loadPatientData()">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+
+        <form id="patientForm">
+            <div class="sidebar-section-title">Demographics</div>
+            <div class="input-group"><label>Age (Years)</label><input type="number" id="AGE"></div>
+            <div class="input-group"><label>Biological Sex</label><select id="SEX"><option value="0">Female</option><option value="1">Male</option></select></div>
+            <div class="input-group"><label>Education Level (LOCKED)</label><select id="educ_2.0"><option value="0">Other</option><option value="1">High School</option></select></div>
+            
+            <div class="sidebar-section-title">Vitals</div>
+            <div class="input-group"><label>Systolic BP (mmHg)</label><input type="number" step="0.5" id="SYSBP"></div>
+            <div class="input-group"><label>Diastolic BP (mmHg)</label><input type="number" step="0.5" id="DIABP"></div>
+            <div class="input-group"><label>Heart Rate (bpm)</label><input type="number" id="HEARTRTE"></div>
+            <div class="input-group"><label>BMI (kg/m²)</label><input type="number" step="0.1" id="BMI"></div>
+            
+            <div class="sidebar-section-title">Biomarkers & History</div>
+            <div class="input-group"><label>Total Cholesterol (mg/dL)</label><input type="number" id="TOTCHOL"></div>
+            <div class="input-group"><label>Glucose (mg/dL)</label><input type="number" id="GLUCOSE"></div>
+            <div class="input-group"><label>Current Smoker</label><select id="CURSMOKE"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="input-group"><label>Cigarettes Per Day</label><input type="number" id="CIGPDAY"></div>
+            <div class="input-group"><label>BP Medication</label><select id="BPMEDS"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="input-group"><label>Prevalent Hypertension</label><select id="PREVHYP"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="input-group"><label>Prevalent Stroke</label><select id="PREVSTRK"><option value="0">No</option><option value="1">Yes</option></select></div>
+            <div class="input-group"><label>Diabetes</label><select id="DIABETES"><option value="0">No</option><option value="1">Yes</option></select></div>
+            
+            <!-- Hidden required for inference -->
+            <input type="hidden" id="PREVCHD" value="0"><input type="hidden" id="PREVAP" value="0"><input type="hidden" id="PREVMI" value="0">
+            <input type="hidden" id="educ_1.0" value="0"><input type="hidden" id="educ_3.0" value="0"><input type="hidden" id="educ_4.0" value="0">
+
+            <button type="button" onclick="predictRisk()" id="calcBtn" class="btn-primary">Calculate Baseline Risk</button>
+            <button type="button" onclick="runOptimizer()" id="optBtn" class="btn-primary" style="display:none; background-color: #10b981;">Generate Recourse Path</button>
+        </form>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 p-6 overflow-y-auto bg-slate-900 flex flex-col gap-6">
+        
+        <div class="flex justify-between items-start">
+            <h1 class="text-3xl font-bold text-white mb-2">Clinical Recourse Pathway</h1>
+        </div>
+        <p class="text-slate-400 text-sm -mt-6">Feasibility-Guided Latent Space Optimization</p>
+
+        <!-- Top Section: Audit Log & Risk Circle -->
+        <div class="flex gap-6">
+            <!-- Audit Log -->
+            <div class="glass-panel p-6 flex-1 border-l-4 border-l-blue-500">
+                <h3 class="text-lg font-bold text-white mb-2">Patient Clinical Profile</h3>
+                <p class="text-xs text-slate-400 mb-4">Baseline AI Evaluation</p>
+                <div id="riskStatusPanel" class="hidden rounded p-4 border mb-2 bg-slate-800 border-slate-700">
+                    <div class="text-xs text-slate-400 uppercase font-bold tracking-wide mb-1">Recourse Confidence</div>
+                    <div id="recourseTier" class="text-xl font-bold text-white">--</div>
+                    <div id="recourseRRR" class="text-sm text-slate-300 mt-1">--</div>
+                </div>
+            </div>
+            
+            <!-- Circular Risk Indicator -->
+            <div class="glass-panel p-6 w-64 flex flex-col items-center justify-center">
+                <div class="relative w-32 h-32 flex items-center justify-center">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="45" fill="none" stroke="#334155" stroke-width="8"></circle>
+                        <circle id="riskCircle" class="progress-ring__circle" cx="50" cy="50" r="45" fill="none" stroke="#10b981" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="283"></circle>
+                    </svg>
+                    <div class="absolute flex flex-col items-center justify-center">
+                        <span id="riskPct" class="text-2xl font-bold text-white">--%</span>
+                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wide">10-Yr Risk</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Section: Trajectory & Actionable Plan -->
+        <div class="flex gap-6 h-80">
+            <!-- Survival Trajectory -->
+            <div class="glass-panel p-4 flex-[2] flex flex-col">
+                <h3 class="text-sm font-bold text-white mb-2">Long-Term Survival Probability (1 to 10 Years)</h3>
+                <p class="text-xs text-slate-400 mb-2">Predicted probability of remaining event-free over time.</p>
+                <div class="flex-1 relative w-full">
+                    <canvas id="survivalChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Actionable Treatment Plan -->
+            <div class="glass-panel p-4 flex-1 flex flex-col">
+                <h3 class="text-sm font-bold text-white mb-4">Actionable Treatment Plan</h3>
+                <div id="planBox" class="flex-1 overflow-y-auto pr-2 space-y-4">
+                    <p class="text-sm text-slate-500 italic">Generate recourse path to view clinical steps.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- NEW: Clinical Explainability Panel -->
+        <div class="glass-panel p-6 mt-4">
+            <h2 class="text-xl font-bold text-white mb-2">Primary Risk Drivers</h2>
+            <p class="text-slate-400 text-sm mb-6">Visualizing exactly how much each patient-specific feature value contributes to the final hazard.</p>
+            
+            <div id="liveRiskNodes" class="space-y-4 h-[250px] overflow-y-auto pr-4">
+                <div class="text-slate-500 text-center mt-10">Awaiting 'Calculate Baseline Risk'...</div>
+            </div>
+        </div>
+        
+        <!-- Bottom Section: Metrics Table -->
+        <div class="glass-panel p-4">
+            <h3 class="text-sm font-bold text-white mb-4">Clinical Metrics (Original vs Optimized)</h3>
+            <table class="w-full table-metrics" id="metricsTable">
+                <thead>
+                    <tr>
+                        <th>Medical Feature</th>
+                        <th>Original Value</th>
+                        <th>Target Value</th>
+                        <th>Required Change</th>
+                    </tr>
+                </thead>
+                <tbody id="metricsBody">
+                    <tr><td colspan="4" class="text-center text-slate-500">Run Optimization to generate metrics</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Add Patient Modal (Hidden by default) -->
+    <div id="addPatientModal" class="modal">
+        <div class="modal-content" style="max-width: 600px; height: auto;">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-white">Add Custom Patient</h2>
+                <button onclick="document.getElementById('addPatientModal').style.display='none'" class="text-slate-400 hover:text-white text-2xl">&times;</button>
+            </div>
+            <p class="text-sm text-slate-400 mb-4">Values will be saved to custom_patients.csv</p>
+            <button onclick="alert('Feature placeholder for brevity'); document.getElementById('addPatientModal').style.display='none';" class="btn-primary">Mock Save</button>
+        </div>
+    </div>
+
+    <!-- Frontend Logic -->
+    <script>
+        const API_URL = "/api";
+        let survivalChartInst = null;
+        let currentOriginalData = {};
+        
+        let base_times = [];
+        let base_probs = [];
+        
+        const clinicalNames = {
+            'SYSBP': 'Systolic Blood Pressure',
+            'DIABP': 'Diastolic Blood Pressure',
+            'TOTCHOL': 'Total Cholesterol',
+            'BMI': 'Body Mass Index (BMI)',
+            'GLUCOSE': 'Fasting Glucose',
+            'HEARTRTE': 'Resting Heart Rate',
+            'CIGPDAY': 'Cigarettes Per Day',
+            'CURSMOKE': 'Current Smoker',
+            'DIABETES': 'Diabetes Mellitus',
+            'BPMEDS': 'On BP Medication',
+            'AGE': 'Age',
+            'SEX': 'Biological Sex',
+            'PREVCHD': 'Prior Coronary Heart Disease',
+            'PREVAP': 'Prior Angina Pectoris',
+            'PREVMI': 'Prior Myocardial Infarction',
+            'PREVSTRK': 'Prior Stroke',
+            'PREVHYP': 'Prior Hypertension',
+            'educ_1.0': 'Education (High School)',
+            'educ_2.0': 'Education (Some College)',
+            'educ_3.0': 'Education (College)',
+            'educ_4.0': 'Education (Post-Grad)'
+        };
+        
+        // Setup Survival Chart
+        const ctxSurv = document.getElementById('survivalChart').getContext('2d');
+        survivalChartInst = new Chart(ctxSurv, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, title: {display: true, text: 'Survival Probability', color: '#94a3b8'} },
+                    x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' }, title: {display: true, text: 'Years', color: '#94a3b8'} }
+                },
+                elements: { point: { radius: 4, hoverRadius: 6 }, line: { borderWidth: 3 } },
+                plugins: { legend: { labels: { color: '#cbd5e1', usePointStyle: true, boxWidth: 8 } } }
+            }
+        });
+
+        const features = ['SYSBP', 'DIABP', 'TOTCHOL', 'BMI', 'GLUCOSE', 'HEARTRTE', 'CIGPDAY', 'CURSMOKE', 'DIABETES', 'BPMEDS', 'AGE', 'SEX', 'PREVCHD', 'PREVAP', 'PREVMI', 'PREVSTRK', 'PREVHYP', 'educ_1.0', 'educ_2.0', 'educ_3.0', 'educ_4.0'];
+
+        async function fetchPatientList() {
+            const res = await fetch(`${API_URL}/patients`);
+            const data = await res.json();
+            const sel = document.getElementById('patientSelect');
+            sel.innerHTML = '';
+            data.base.forEach((p, i) => sel.add(new Option(p, `base|${i}`)));
+            data.custom.forEach((p, i) => sel.add(new Option(p, `custom|${i}`)));
+            if(data.base.length > 0) loadPatientData();
+        }
+
+        async function loadPatientData() {
+            const val = document.getElementById('patientSelect').value;
+            if(!val) return;
+            const [type, idx] = val.split('|');
+            const res = await fetch(`${API_URL}/patient/${type}/${idx}`);
+            const data = await res.json();
+            
+            features.forEach(f => {
+                const el = document.getElementById(f);
+                if(el && data[f] !== undefined) {
+                    if(el.tagName === 'SELECT') el.value = parseInt(data[f]);
+                    else el.value = typeof data[f] === 'number' ? data[f].toFixed(1) : data[f];
+                }
+            });
+            
+            resetDashboard();
+        }
+
+        function resetDashboard() {
+            document.getElementById('calcBtn').style.display = 'block';
+            document.getElementById('optBtn').style.display = 'none';
+            document.getElementById('planBox').innerHTML = '<p class="text-sm text-slate-500 italic">Generate recourse path to view clinical steps.</p>';
+            document.getElementById('metricsBody').innerHTML = '<tr><td colspan="4" class="text-center text-slate-500">Run Optimization to generate metrics</td></tr>';
+            
+            document.getElementById('liveRiskNodes').innerHTML = '<div class="text-slate-500 text-center mt-10">Awaiting \'Calculate Baseline Risk\'...</div>';
+            document.getElementById('riskStatusPanel').classList.add('hidden');
+            
+            setRiskCircle(0);
+            base_times = [];
+            base_probs = [];
+            survivalChartInst.data = { labels: [], datasets: [] };
+            survivalChartInst.update();
+        }
+
+        function getFormData() {
+            let data = {};
+            features.forEach(f => {
+                const el = document.getElementById(f);
+                if(el) data[f] = parseFloat(el.value) || 0.0;
+            });
+            return data;
+        }
+
+        function setRiskCircle(pct) {
+            const circle = document.getElementById('riskCircle');
+            const text = document.getElementById('riskPct');
+            const radius = circle.r.baseVal.value;
+            const circumference = radius * 2 * Math.PI;
+            
+            const offset = circumference - (pct / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+            text.innerText = pct > 0 ? `${pct.toFixed(1)}%` : '--%';
+            
+            if(pct < 10) circle.style.stroke = '#10b981'; // Green
+            else if(pct < 20) circle.style.stroke = '#f59e0b'; // Orange
+            else circle.style.stroke = '#ef4444'; // Red
+        }
+
+        function renderRiskMath(xai) {
+            const container = document.getElementById('liveRiskNodes');
+            container.innerHTML = '';
+            
+            const entries = Object.entries(xai).slice(0, 10); // Show top 10
+            const max_abs = Math.max(...entries.map(e => Math.abs(e[1])));
+            
+            entries.forEach(([feat, contribution], idx) => {
+                const el = document.createElement('div');
+                el.className = 'flex flex-col mb-4';
+                
+                let is_risk = contribution > 0;
+                let colorClass = is_risk ? 'bg-red-500' : 'bg-emerald-500';
+                let sign = is_risk ? '+' : '';
+                let pct = (Math.abs(contribution) / max_abs) * 100;
+                if(pct < 5) pct = 5; // minimum width
+                
+                // We use flex row for the bar layout. 
+                // Left side = Protective (green), Center = 0 line, Right side = Risk (red)
+                let leftBar = is_risk ? '0%' : `${pct}%`;
+                let rightBar = is_risk ? `${pct}%` : '0%';
+                
+                let prettyName = clinicalNames[feat] || feat;
+                
+                el.innerHTML = `
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="text-white font-semibold">${prettyName}</span>
+                        <span class="${is_risk ? 'text-red-400' : 'text-emerald-400'} font-bold text-xs">${sign}${contribution.toFixed(3)} hazard units</span>
+                    </div>
+                    <div class="flex w-full h-2 bg-slate-800 rounded overflow-hidden">
+                        <div class="w-1/2 flex justify-end"><div class="h-full bg-emerald-500" style="width: ${!is_risk ? pct : 0}%"></div></div>
+                        <div class="w-px bg-slate-500 h-full"></div>
+                        <div class="w-1/2 flex justify-start"><div class="h-full bg-red-500" style="width: ${is_risk ? pct : 0}%"></div></div>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function extractTargetYears(times, probs) {
+            const targets = [1, 3, 5, 10];
+            let out_times = [];
+            let out_probs = [];
+            
+            targets.forEach(yr => {
+                // Find closest time
+                let closest_idx = 0;
+                let min_diff = 999;
+                for(let i=0; i<times.length; i++) {
+                    let diff = Math.abs(times[i] - yr);
+                    if(diff < min_diff) {
+                        min_diff = diff;
+                        closest_idx = i;
+                    }
+                }
+                out_times.push(yr);
+                out_probs.push(probs[closest_idx]);
+            });
+            return { times: out_times, probs: out_probs };
+        }
+
+        async function predictRisk() {
+            currentOriginalData = getFormData();
+            document.getElementById('calcBtn').innerText = "Calculating...";
+            
+            const res = await fetch(`${API_URL}/predict`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({patient_data: currentOriginalData})
+            });
+            const result = await res.json();
+            
+            document.getElementById('calcBtn').style.display = 'none';
+            document.getElementById('optBtn').style.display = 'block';
+            
+            // Render Baseline Survival Curve
+            const target_data = extractTargetYears(result.survival_times, result.survival_probs);
+            base_times = target_data.times;
+            base_probs = target_data.probs;
+            
+            survivalChartInst.data = {
+                labels: base_times.map(y => `Year ${y}`),
+                datasets: [
+                    { label: 'Baseline Survival Prob', data: base_probs, borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.2)', fill: true }
+                ]
+            };
+            survivalChartInst.update();
+            
+            const risk_pct = (1.0 - base_probs[base_probs.length - 1]) * 100;
+            setRiskCircle(risk_pct);
+            
+            renderRiskMath(result.xai_contributions);
+        }
+
+        async function runOptimizer() {
+            document.getElementById('optBtn').innerText = "Optimizing Manifold...";
+            document.getElementById('optBtn').disabled = true;
+            
+            const res = await fetch(`${API_URL}/optimize`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({patient_data: currentOriginalData})
+            });
+            const result = await res.json();
+            
+            document.getElementById('optBtn').innerText = "Generate Recourse Path";
+            document.getElementById('optBtn').disabled = false;
+            
+            // Show Status Panel
+            const statusPanel = document.getElementById('riskStatusPanel');
+            const tierEl = document.getElementById('recourseTier');
+            const rrrEl = document.getElementById('recourseRRR');
+            statusPanel.classList.remove('hidden');
+            
+            if(result.status === 'strong') {
+                statusPanel.className = 'rounded p-4 border mb-2 bg-emerald-900/30 border-emerald-700';
+                tierEl.innerText = "Strong Recourse Found";
+                tierEl.className = "text-xl font-bold text-emerald-400";
+            } else if(result.status === 'partial') {
+                statusPanel.className = 'rounded p-4 border mb-2 bg-yellow-900/30 border-yellow-700';
+                tierEl.innerText = "Limited/Partial Recourse";
+                tierEl.className = "text-xl font-bold text-yellow-400";
+            } else {
+                statusPanel.className = 'rounded p-4 border mb-2 bg-slate-800 border-slate-700';
+                tierEl.innerText = "No Feasible Recourse";
+                tierEl.className = "text-xl font-bold text-slate-400";
+            }
+            
+            if(result.relative_risk_reduction) {
+                rrrEl.innerHTML = `Predicted Relative Risk Reduction: <span class="font-bold">${(result.relative_risk_reduction * 100).toFixed(1)}%</span>`;
+            }
+            
+            // Plot Counterfactual Survival
+            const target_data = extractTargetYears(result.survival_times, result.survival_probs);
+            
+            survivalChartInst.data.datasets = [
+                { label: 'Baseline Survival Prob', data: base_probs, borderColor: '#ef4444', borderDash: [5, 5], backgroundColor: 'transparent' },
+                { label: 'Counterfactual Survival Prob', data: target_data.probs, borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.2)', fill: true }
+            ];
+            survivalChartInst.update();
+            
+            // Render Plan
+            const planBox = document.getElementById('planBox');
+            planBox.innerHTML = '';
+            
+            if(result.status === 'none') {
+                planBox.innerHTML = `<p class="text-sm text-slate-400 italic">No safe interventions found within physiological boundaries to meaningfully reduce risk.</p>`;
+            } else {
+                result.prescription.forEach((item, idx) => {
+                    let prettyName = clinicalNames[item.feature] || item.feature;
+                    planBox.innerHTML += `
+                    <div class="border-l-2 border-emerald-500 pl-3">
+                        <div class="text-xs font-bold text-emerald-400">Phase ${idx+1}</div>
+                        <div class="text-sm text-slate-300">Target ${prettyName} to <span class="text-white font-bold">${item.recommended.toFixed(1)}</span></div>
+                    </div>`;
+                });
+            }
+            
+            // Render Table
+            const tbody = document.getElementById('metricsBody');
+            tbody.innerHTML = '';
+            
+            const displayFeats = ['AGE', 'SEX', 'CURSMOKE', ...result.prescription.map(p => p.feature)];
+            const uniqueFeats = [...new Set(displayFeats)];
+            
+            uniqueFeats.forEach(feat => {
+                let o_val = currentOriginalData[feat];
+                let r_val = result.cf_native[feat];
+                let prettyName = clinicalNames[feat] || feat;
+                
+                let pres = result.prescription.find(p => p.feature === feat);
+                let delta = pres ? `<span class="${pres.change < 0 ? 'text-green-400' : 'text-red-400'}">${pres.change > 0 ? '+' : ''}${pres.change.toFixed(1)}</span>` : '<span class="text-slate-500">-</span>';
+                
+                if (result.status === 'none' && !pres) {
+                    delta = '<span class="text-slate-500">-</span>';
+                }
+                
+                tbody.innerHTML += `
+                <tr>
+                    <td class="font-bold text-slate-300">${prettyName}</td>
+                    <td>${typeof o_val === 'number' ? o_val.toFixed(1) : o_val}</td>
+                    <td class="text-blue-300">${typeof r_val === 'number' ? r_val.toFixed(1) : r_val}</td>
+                    <td>${delta}</td>
+                </tr>`;
+            });
+            
+            // Update Risk Circle to counterfactual
+            const s_prob = target_data.probs[target_data.probs.length - 1];
+            setRiskCircle((1.0 - s_prob) * 100);
+        }
+
+        fetchPatientList();
+    </script>
+</body>
+</html>
